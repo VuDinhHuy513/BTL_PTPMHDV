@@ -4,16 +4,19 @@ Vì sao cần seed? Báo cáo occupancy/doanh thu mà DB rỗng thì demo ra to�
 Giảng viên nhìn là biết chưa chạy thật.
 
 Nên tạo:
-    - 4 tài khoản, mỗi vai trò một cái (nhớ hash mật khẩu)
-    - 5 loại phòng, ~48 phòng, trong đó 2 phòng để OutOfOrder
+    - 2 tài khoản: admin (Admin) và letan (Receptionist) — nhớ hash mật khẩu
+    - 5 loại phòng (tên tiếng Việt tùy bạn), ~48 phòng, trong đó 2 phòng để
+      OutOfOrder
       ↳ để kiểm chứng phòng bảo trì bị loại khỏi kết quả tra phòng trống
     - 7 dịch vụ
-    - Giá cuối tuần +30% (thứ Sáu, Bảy, Chủ Nhật)
-    - ~80 khách hàng
+    - ~80 khách hàng (số điện thoại không trùng nhau)
     - ~200 booking TRẢI ĐỀU từ 60 ngày trước đến 90 ngày sau,
       đủ mọi trạng thái: CheckedOut (quá khứ), CheckedIn (đang ở),
-      Confirmed/Pending/Cancelled (tương lai)
+      Confirmed/Cancelled/NoShow (NoShow chỉ ở quá khứ hoặc hôm nay)
+      Mỗi booking giữ ĐÚNG phòng cụ thể (booking_details.room_id).
     - Dịch vụ + thanh toán cho các booking đã/đang ở
+    - Phòng của booking CheckedIn phải đang Occupied; phòng vừa CheckedOut
+      hôm nay nên Dirty
 
 ⚠ Đặt random.seed(42) ở đầu file để chạy lại ra cùng dữ liệu, dễ debug.
 

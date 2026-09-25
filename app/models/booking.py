@@ -5,7 +5,7 @@
 ┌─ Booking ──────────────────────────────────────────────────────────────┐
 │ id, code (unique, index), customer_id (FK)                             │
 │ check_in: date, check_out: date, guests: int                           │
-│ status: BookingStatus, deposit: Numeric(18,2)                          │
+│ status: BookingStatus                                                  │
 │ note, cancel_reason                                                    │
 │ created_at, checked_in_at, checked_out_at                              │
 │ deleted_at  ← soft delete, KHÔNG xóa cứng (R10)                        │
@@ -18,21 +18,21 @@
 └────────────────────────────────────────────────────────────────────────┘
 
 ┌─ BookingDetail — mỗi dòng là MỘT phòng trong booking ──────────────────┐
-│ id, booking_id (FK), room_type_id (FK)                                 │
-│ room_id: FK nullable  ← để NULL cho tới lúc check-in (R5)              │
+│ id, booking_id (FK), room_id (FK, NOT NULL)                            │
 │                                                                        │
-│ Vì sao nullable? Lúc đặt khách chỉ chọn LOẠI phòng. Gán phòng cứng     │
-│ từ đầu làm lễ tân mất linh hoạt sắp xếp.                               │
+│ Nhân viên chọn ĐÚNG phòng (101, 102…) ngay lúc khách gọi đặt (R5).     │
+│ Không có room_type_id: loại phòng suy ra từ room.room_type_id, giữ     │
+│ thêm ở đây chỉ tạo dữ liệu thừa dễ lệch nhau.                          │
 │                                                                        │
-│ relationship: booking, room_type, room, night_rates                    │
+│ relationship: booking, room, night_rates                               │
 │ @property room_charge → tổng giá các đêm                               │
 └────────────────────────────────────────────────────────────────────────┘
 
 ┌─ BookingNightRate — giá CHỐT của từng đêm ────────────────────────────┐
 │ id, booking_detail_id (FK), date: date, price: Numeric(18,2)           │
 │                                                                        │
-│ Vì sao cần bảng này? Xem docs/CONVENTIONS.md mục 4.                    │
-│ Nếu hóa đơn join sang rate_prices để tính, sửa bảng giá sẽ làm đổi     │
-│ số tiền của hóa đơn đã xuất từ trước.                                  │
+│ Vì sao cần bảng này dù giá mỗi đêm giống nhau? Xem docs/CONVENTIONS.md │
+│ mục 4: Admin sửa base_price sau này thì booking cũ không được đổi giá. │
+│ Đồng thời cho phép đổi phòng giữa kỳ sang loại phòng khác giá.         │
 └────────────────────────────────────────────────────────────────────────┘
 """

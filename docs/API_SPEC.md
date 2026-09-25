@@ -4,6 +4,9 @@ Prefix `/api/v1`. Đánh dấu ⬜ khi chưa làm, ✅ khi đã test xong.
 
 Quy ước chung: xem `docs/CONVENTIONS.md` mục 7 và 8.
 
+Hệ thống chỉ có 2 vai trò: **Admin** (toàn quyền) và **Lễ tân** (mọi thao tác nghiệp
+vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa là Admin + Lễ tân.
+
 | Trạng thái | Method | Endpoint | Quyền |
 |---|---|---|---|
 | | | **01. Xác thực** | |
@@ -19,74 +22,63 @@ Quy ước chung: xem `docs/CONVENTIONS.md` mục 7 và 8.
 | ✅ | DELETE | `/room-types/{id}` | Admin |
 | | | **03. Phòng** | |
 | ⬜ | GET | `/rooms?floor=&room_type_id=&status=` | Mọi vai trò |
+| ⬜ | GET | `/rooms/schedule?from=&to=` (sơ đồ phòng theo ngày) | Nhân viên |
 | ⬜ | GET | `/rooms/{id}` | Mọi vai trò |
 | ⬜ | POST | `/rooms` | Admin |
 | ⬜ | PUT | `/rooms/{id}` | Admin |
-| ⬜ | PATCH | `/rooms/{id}/status` | Admin, Buồng phòng |
+| ⬜ | PATCH | `/rooms/{id}/status` | Nhân viên |
 | ⬜ | DELETE | `/rooms/{id}` | Admin |
-| | | **04. Giá phòng** | |
-| ⬜ | GET | `/rates?room_type_id=&from=&to=` | Admin, Lễ tân |
-| ⬜ | POST | `/rates` | Admin |
-| ⬜ | POST | `/rates/bulk` | Admin |
-| ⬜ | DELETE | `/rates/{id}` | Admin |
-| | | **05. Tra cứu phòng trống** ⭐ | |
-| ⬜ | GET | `/availability?check_in=&check_out=&guests=` | Mọi vai trò |
-| ⬜ | GET | `/availability/rooms?room_type_id=&check_in=&check_out=` | Lễ tân |
-| | | **06. Khách hàng** | |
-| ⬜ | GET | `/customers?search=&page=&limit=` | Lễ tân |
-| ⬜ | GET | `/customers/{id}` | Lễ tân |
-| ⬜ | GET | `/customers/{id}/bookings` | Lễ tân |
-| ⬜ | POST | `/customers` | Lễ tân |
-| ⬜ | PUT | `/customers/{id}` | Lễ tân |
-| | | **07. Đặt phòng** ⭐ | |
-| ⬜ | GET | `/bookings?status=&from=&to=&customer_id=&page=` | Lễ tân |
-| ⬜ | GET | `/bookings/{id}` | Lễ tân |
-| ⬜ | GET | `/bookings/code/{code}` | Lễ tân |
-| ⬜ | POST | `/bookings` | Lễ tân |
-| ⬜ | PUT | `/bookings/{id}` | Lễ tân |
-| ⬜ | DELETE | `/bookings/{id}` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/confirm` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/cancel` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/no-show` | Lễ tân |
-| | | **08. Nhận / trả phòng** ⭐ | |
-| ⬜ | POST | `/bookings/walk-in` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/check-in` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/change-room` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/check-out` | Lễ tân |
-| | | **09. Dịch vụ** | |
+| | | **04. Tra cứu phòng trống** ⭐ | |
+| ⬜ | GET | `/availability?check_in=&check_out=&guests=` | Nhân viên |
+| ⬜ | GET | `/availability/rooms?room_type_id=&check_in=&check_out=` | Nhân viên |
+| | | **05. Khách hàng** | |
+| ⬜ | GET | `/customers?search=&page=&limit=` | Nhân viên |
+| ⬜ | GET | `/customers/{id}` | Nhân viên |
+| ⬜ | GET | `/customers/{id}/bookings` | Nhân viên |
+| ⬜ | POST | `/customers` | Nhân viên |
+| ⬜ | PUT | `/customers/{id}` | Nhân viên |
+| | | **06. Đặt phòng** ⭐ | |
+| ⬜ | GET | `/bookings?status=&from=&to=&customer_id=&page=` | Nhân viên |
+| ⬜ | GET | `/bookings/{id}` | Nhân viên |
+| ⬜ | GET | `/bookings/code/{code}` | Nhân viên |
+| ⬜ | POST | `/bookings` (body có `room_ids`) | Nhân viên |
+| ⬜ | PUT | `/bookings/{id}` | Nhân viên |
+| ⬜ | DELETE | `/bookings/{id}` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/cancel` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/no-show` | Nhân viên |
+| | | **07. Nhận / trả phòng** ⭐ | |
+| ⬜ | POST | `/bookings/walk-in` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/check-in` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/change-room` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/check-out` | Nhân viên |
+| | | **08. Dịch vụ** | |
 | ⬜ | GET | `/services` | Mọi vai trò |
 | ⬜ | POST | `/services` | Admin |
 | ⬜ | PUT | `/services/{id}` | Admin |
-| ⬜ | GET | `/bookings/{id}/services` | Lễ tân |
-| ⬜ | POST | `/bookings/{id}/services` | Lễ tân |
-| ⬜ | DELETE | `/bookings/{id}/services/{line_id}` | Lễ tân |
-| | | **10. Thanh toán & hóa đơn** | |
-| ⬜ | GET | `/bookings/{id}/folio` | Lễ tân, Kế toán |
-| ⬜ | GET | `/bookings/{id}/payments` | Lễ tân, Kế toán |
-| ⬜ | POST | `/bookings/{id}/payments` | Lễ tân |
-| ⬜ | POST | `/payments/{id}/refund` | Admin, Kế toán |
-| ⬜ | GET | `/invoices?from=&to=` | Kế toán |
-| ⬜ | GET | `/invoices/{id}` | Kế toán |
-| | | **11. Buồng phòng** | |
-| ⬜ | GET | `/housekeeping/tasks?date=&status=&assignee_id=` | Buồng phòng |
-| ⬜ | POST | `/housekeeping/tasks` | Admin, Buồng phòng |
-| ⬜ | PATCH | `/housekeeping/tasks/{id}` | Buồng phòng |
-| ⬜ | GET | `/housekeeping/room-status` | Buồng phòng |
-| | | **12. Báo cáo** | |
-| ⬜ | GET | `/reports/occupancy?from=&to=` | Admin, Kế toán |
-| ⬜ | GET | `/reports/revenue?from=&to=&groupBy=` | Admin, Kế toán |
-| ⬜ | GET | `/reports/adr-revpar?from=&to=` | Admin, Kế toán |
-| ⬜ | GET | `/reports/arrivals?date=` | Lễ tân |
-| ⬜ | GET | `/reports/departures?date=` | Lễ tân |
-| ⬜ | GET | `/reports/dashboard` | Lễ tân |
-| | | **13. Quản trị** | |
+| ⬜ | GET | `/bookings/{id}/services` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/services` | Nhân viên |
+| ⬜ | DELETE | `/bookings/{id}/services/{line_id}` | Nhân viên |
+| | | **09. Thanh toán & hóa đơn** ⭐ | |
+| ⬜ | GET | `/bookings/{id}/folio` | Nhân viên |
+| ⬜ | GET | `/bookings/{id}/payments` | Nhân viên |
+| ⬜ | POST | `/bookings/{id}/payments` | Nhân viên |
+| ⬜ | POST | `/payments/{id}/refund` | Nhân viên |
+| ⬜ | GET | `/invoices?from=&to=` | Nhân viên |
+| ⬜ | GET | `/invoices/{id}` | Nhân viên |
+| | | **10. Báo cáo** | |
+| ⬜ | GET | `/reports/occupancy?from=&to=` | Nhân viên |
+| ⬜ | GET | `/reports/revenue?from=&to=&groupBy=` | Nhân viên |
+| ⬜ | GET | `/reports/adr-revpar?from=&to=` | Nhân viên |
+| ⬜ | GET | `/reports/arrivals?date=` | Nhân viên |
+| ⬜ | GET | `/reports/departures?date=` | Nhân viên |
+| ⬜ | GET | `/reports/dashboard` | Nhân viên |
+| | | **11. Quản trị** | |
 | ⬜ | GET | `/users` | Admin |
 | ⬜ | POST | `/users` | Admin |
 | ⬜ | PUT | `/users/{id}` | Admin |
 | ⬜ | PATCH | `/users/{id}/status` | Admin |
-| ⬜ | GET | `/audit-logs?entity=&from=&to=` | Admin |
 
-**Tổng: 64 endpoint.**
+**Tổng: 57 endpoint.**
 
-Nếu thiếu thời gian, cắt theo thứ tự: `/audit-logs` → nhóm Buồng phòng →
-`/reports/adr-revpar`. Không cắt nhóm 05, 07, 08, 10 — đó là xương sống.
+Nếu thiếu thời gian, cắt theo thứ tự: `/reports/adr-revpar` → `/bookings/{id}/change-room`
+→ `/rooms/schedule`. Không cắt nhóm 04, 06, 07, 09 — đó là xương sống.

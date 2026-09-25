@@ -9,7 +9,8 @@ TODO — các hàm cần viết:
         subtotal = room_charge + service_charge
         vat_amount = subtotal * settings.VAT_RATE   ← KHÔNG viết 0.08
         total = subtotal + vat_amount
-        balance_due = total - deposit - đã_thanh_toán
+        paid = tổng payments (số dương là thu, số âm là hoàn)
+        balance_due = total - paid
 
     add_service(booking, service_id, quantity, used_date, note)
         ⚠ Copy unit_price từ Service vào BookingService — CHỐT giá lúc dùng.

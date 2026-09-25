@@ -53,8 +53,7 @@ def require_roles(*roles: Role) -> Callable:
 
 
 # Các tổ hợp quyền hay dùng — xem docs/BUSINESS_RULES.md mục R11
+# Hệ thống chỉ có 2 vai trò nên "nhân viên" (lễ tân + admin) dùng chung một tổ hợp.
 require_admin = require_roles(Role.ADMIN)
 require_front_desk = require_roles(Role.ADMIN, Role.RECEPTIONIST)
-require_accounting = require_roles(Role.ADMIN, Role.ACCOUNTANT, Role.RECEPTIONIST)
-require_housekeeping = require_roles(Role.ADMIN, Role.HOUSEKEEPER)
 require_any = get_current_user

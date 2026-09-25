@@ -18,7 +18,6 @@ class Settings(BaseSettings):
 
     # Quy tắc nghiệp vụ
     VAT_RATE: float = 0.08              # thuế VAT 8%
-    CANCEL_FREE_BEFORE_DAYS: int = 2    # hủy miễn phí trước N ngày
 
     @property
     def is_postgres(self) -> bool:

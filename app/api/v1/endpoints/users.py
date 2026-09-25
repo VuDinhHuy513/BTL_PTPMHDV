@@ -11,4 +11,4 @@ Depends(require_*), và có summary= để Swagger đọc được.
 """
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/users", tags=["12. Quản trị người dùng"])
+router = APIRouter(prefix="/users", tags=["11. Quản trị người dùng"])

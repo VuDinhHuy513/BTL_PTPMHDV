@@ -3,14 +3,14 @@
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║ VẤN ĐỀ                                                                   ║
 ║                                                                          ║
-║ Còn đúng 1 phòng. Hai request đến cùng lúc:                              ║
+║ Hai lễ tân cùng lúc nhận hai cuộc gọi, cùng chọn phòng 101:              ║
 ║                                                                          ║
 ║   Request A                      Request B                               ║
 ║   ───────────                    ───────────                             ║
-║   đếm phòng trống → 1                                                    ║
-║                                  đếm phòng trống → 1   ← vẫn thấy 1!    ║
-║   1 >= 1, OK, ghi booking                                                ║
-║                                  1 >= 1, OK, ghi booking                 ║
+║   kiểm tra 101 trống → có                                                ║
+║                                  kiểm tra 101 trống → có  ← vẫn thấy!    ║
+║   ghi booking cho 101                                                    ║
+║                                  ghi booking cho 101                     ║
 ║                                                                          ║
 ║   → 2 booking cho 1 phòng. Khách đến khách sạn mới biết.                 ║
 ║                                                                          ║
@@ -18,50 +18,33 @@
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║ GIẢI PHÁP                                                                ║
 ║                                                                          ║
-║ Giữ khóa theo room_type_id trong SUỐT transaction. Request B phải đợi    ║
-║ A commit xong mới được đếm, lúc đó nó thấy 0 phòng và bị từ chối.        ║
+║ Khóa CHÍNH các dòng phòng trong bảng rooms suốt transaction. Request B   ║
+║ phải đợi A commit xong mới được kiểm tra, lúc đó nó thấy 101 đã bận     ║
+║ và bị từ chối.                                                           ║
 ║                                                                          ║
-║   with room_type_lock(db, room_type_id):                                 ║
-║       free = count_available(...)   ← đếm SAU KHI đã giữ khóa            ║
-║       if free < quantity: raise BusinessError(...)                       ║
-║       db.add(booking)                                                    ║
-║   db.commit()   ← khóa tự nhả ở đây                                      ║
+║   lock_rooms(db, room_ids)      ← SELECT ... FOR UPDATE                  ║
+║   kiểm tra phòng còn trống      ← SAU KHI đã khóa                        ║
+║   db.add(booking)                                                        ║
+║   db.commit()                   ← khóa tự nhả ở đây                      ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-TODO — viết hàm room_type_lock(db, room_type_id) dạng context manager.
+TODO — viết hàm lock_rooms(db, room_ids).
 
-PostgreSQL (khuyến nghị):
-    SELECT pg_advisory_xact_lock(:namespace, :key)
-    Khóa tự nhả khi COMMIT/ROLLBACK, không cần nhả tay.
-    Dùng namespace là một số cố định để không đụng key của phần khác.
+    ids = sorted(set(room_ids))
+    db.execute(select(Room.id).where(Room.id.in_(ids))
+                              .order_by(Room.id).with_for_update())
 
-MySQL:
-    SELECT GET_LOCK(:name, :timeout)   rồi   SELECT RELEASE_LOCK(:name)
-    Khóa KHÔNG tự nhả theo transaction, phải nhả trong finally.
+MySQL (InnoDB) và PostgreSQL đều hỗ trợ SELECT ... FOR UPDATE: khóa hàng tự
+nhả khi COMMIT/ROLLBACK, không cần nhả tay. Không cần GET_LOCK hay advisory lock.
 
-SQLite / môi trường dev:
-    Fallback bằng threading.Lock trong tiến trình.
-    Chỉ đúng khi chạy 1 worker — ghi rõ hạn chế này vào báo cáo.
+SQLite (dùng khi chạy test tự động): bỏ qua FOR UPDATE, không có khóa hàng.
+Test tự động chạy tuần tự nên vẫn đúng; việc chứng minh khóa hoạt động phải
+làm bằng scripts/test_concurrent.py trên MySQL thật. Ghi rõ điều này vào báo cáo.
 
-Gợi ý khung:
+LƯU Ý: luôn khóa theo thứ tự room_id TĂNG DẦN (ORDER BY id ở trên). Nếu request
+A khóa 101→102 còn B khóa 102→101 thì hai bên chờ nhau vĩnh viễn (deadlock).
 
-    from contextlib import contextmanager
-
-    @contextmanager
-    def room_type_lock(db: Session, room_type_id: int):
-        if settings.is_postgres:
-            db.execute(text("SELECT pg_advisory_xact_lock(:ns, :key)"),
-                       {"ns": LOCK_NAMESPACE, "key": room_type_id})
-            yield
-        else:
-            lock = _get_local_lock(room_type_id)
-            lock.acquire()
-            try:
-                yield
-            finally:
-                lock.release()
-
-LƯU Ý khi đặt nhiều loại phòng cùng lúc: khóa theo thứ tự room_type_id TĂNG DẦN.
-Nếu request A khóa theo thứ tự 1→2 còn B khóa 2→1 thì hai bên chờ nhau vĩnh viễn
-(deadlock). Dùng contextlib.ExitStack để giữ nhiều khóa cùng lúc.
+Giới hạn cần nêu trong báo cáo: MySQL không có ràng buộc "cấm hai khoảng ngày
+chồng nhau trên cùng một phòng" ở mức database, nên chống trùng dựa hoàn toàn
+vào khóa này ở tầng code.
 """

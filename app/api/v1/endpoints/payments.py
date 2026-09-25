@@ -1,4 +1,4 @@
-"""TODO — hóa đơn và hoàn tiền.
+"""TODO — hóa đơn và hoàn tiền. Quyền: require_front_desk (Admin + Lễ tân).
 
     GET  /invoices?from=&to=
     GET  /invoices/{invoice_id}

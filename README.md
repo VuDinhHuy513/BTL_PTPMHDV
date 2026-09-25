@@ -53,7 +53,7 @@ viết service → test **xanh**. Cứ thế đi hết.
 |---|---|---|
 | `docs/CONVENTIONS.md` | Quy tắc viết code: phân tầng, không hard-code, đặt tên, xử lý lỗi | **Trước khi gõ dòng đầu tiên** |
 | `docs/BUSINESS_RULES.md` | Đặc tả nghiệp vụ R1–R12 — đây là đề bài | Mỗi lần bắt đầu một phần mới |
-| `docs/API_SPEC.md` | Danh mục 60+ endpoint cần làm | Khi viết tầng API |
+| `docs/API_SPEC.md` | Danh mục 57 endpoint cần làm | Khi viết tầng API |
 
 ---
 
@@ -91,7 +91,7 @@ pytest -rs          # test bắt đầu bật lên
 ```
 
 Ba chỗ dễ sai:
-- `BookingDetail.room_id` phải **nullable** — xem R5
+- `BookingDetail.room_id` phải **NOT NULL** (nhân viên chọn đúng phòng lúc đặt) — xem R5
 - Tiền dùng `Numeric(18, 2)`, không dùng `Float`
 - Nhớ `Index` trên `(check_in, check_out, status)` của bảng `bookings`
 
@@ -116,7 +116,7 @@ khách B nhận phòng ngày 05 → không trùng.
 
 ### Bước 4 — Auth + endpoint danh mục (1–2 ngày)
 
-`auth_service.py`, rồi `rooms.py`, `rates.py`, `customers.py`, `services.py`,
+`auth_service.py`, rồi `rooms.py`, `customers.py`, `services.py`,
 `users.py`. Bắt chước `room_types.py`.
 
 Bỏ comment dần trong `app/api/v1/router.py`.
@@ -130,7 +130,7 @@ trước, trong đó có sơ đồ giải thích vấn đề.
 
 ### Bước 6 — Folio, thanh toán, báo cáo (2–3 ngày)
 
-`folio_service.py`, `report_service.py`, `housekeeping_service.py`.
+`folio_service.py`, `report_service.py`.
 
 ### Bước 7 — Seed + kiểm chứng (1 ngày)
 
@@ -143,7 +143,7 @@ uvicorn app.main:app --port 8000     # terminal 1
 python -m scripts.test_concurrent    # terminal 2
 ```
 
-Kết quả mong đợi: bắn 12 request đồng thời cùng đặt 1 phòng cuối cùng →
+Kết quả mong đợi: bắn 12 request đồng thời cùng đặt **một phòng** (cùng khoảng ngày) →
 **1 thành công, 11 bị từ chối 409**.
 
 ---
@@ -166,18 +166,18 @@ app/
 ├── models/
 │   ├── enums.py            ✅ Role, RoomStatus, BookingStatus…
 │   ├── room.py             ✅ FILE MẪU
-│   └── (8 file khác)       ⬜ có checklist trường bên trong
+│   └── (5 file khác)       ⬜ có checklist trường bên trong
 ├── schemas/
 │   ├── common.py           ✅
 │   ├── room.py             ✅ FILE MẪU
 │   ├── availability.py     ✅
-│   └── (7 file khác)       ⬜
+│   └── (6 file khác)       ⬜
 ├── services/               ⬜ toàn bộ — có hướng dẫn từng bước trong docstring
 └── api/v1/
     ├── router.py           ⬜ bỏ comment dần
     └── endpoints/
         ├── room_types.py   ✅ FILE MẪU
-        └── (10 file khác)  ⬜ có danh mục endpoint bên trong
+        └── (9 file khác)   ⬜ có danh mục endpoint bên trong
 
 tests/                      ✅ đã viết đủ — đây là đề bài, đừng sửa
 scripts/                    ⬜ seed và test đồng thời
@@ -195,8 +195,8 @@ docs/                       ✅ 3 tài liệu
 | Số đêm ra sai 1 đơn vị | Dùng `<=` thay vì `<` trong vòng lặp ngày |
 | Khách trả phòng và khách mới nhận cùng ngày bị báo trùng | Dùng `<=` / `>=` trong điều kiện giao nhau |
 | Sửa booking báo hết phòng dù chỉ đổi ngày 1 hôm | Quên truyền `exclude_booking_id` |
-| Sau check-in, `room_number` trả về `null` | Thiếu `.execution_options(populate_existing=True)` khi nạp lại booking |
-| Test đồng thời ra 2 booking thành công | Đếm phòng trống nằm ngoài khối khóa, hoặc đang chạy SQLite |
+| Sau khi đổi phòng, `room_number` vẫn là phòng cũ | Thiếu `.execution_options(populate_existing=True)` khi nạp lại booking |
+| Test đồng thời ra 2 booking thành công | Kiểm tra phòng trống nằm ngoài khối khóa `FOR UPDATE`, hoặc đang chạy SQLite (không có khóa hàng) |
 | `404` khi gọi `/bookings/walk-in` | Route `{id}` khai báo trước, nuốt mất `walk-in` |
 
 ---

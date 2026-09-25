@@ -69,7 +69,7 @@ phải dừng lại hỏi "số này nghĩa là gì", thì đặt tên cho nó.
 
 ## 3. Enum thay vì chuỗi
 
-M��i tập giá trị hữu hạn đều là enum. Xem `app/models/enums.py`.
+Mỗi tập giá trị hữu hạn đều là enum. Xem `app/models/enums.py`.
 
 ```python
 # Sai — gõ sai một chữ là bug im lặng, IDE không báo
@@ -123,7 +123,7 @@ Ba loại exception đã có sẵn trong `app/core/exceptions.py`:
 | `BusinessError` | 409 | Vi phạm quy tắc nghiệp vụ (hết phòng, sai vòng đời trạng thái) |
 | `ForbiddenError` | 403 | Không đủ quyền |
 
-M��i `BusinessError` phải có `code` viết HOA_GACH_DUOI để frontend xử lý được:
+Mỗi `BusinessError` phải có `code` viết HOA_GACH_DUOI để frontend xử lý được:
 
 ```python
 raise BusinessError("Loại phòng đã hết trong khoảng ngày này",
@@ -152,15 +152,15 @@ chứ không phải `start`/`end` mập mờ.
 ## 7. Endpoint dạng hành động cho việc chuyển trạng thái
 
 ```python
-# Sai — client có thể nhảy thẳng Pending → CheckedOut
+# Sai — client có thể nhảy thẳng Confirmed → CheckedOut
 PUT /bookings/1   { "status": "CheckedIn" }
 
 # Đúng
-POST /bookings/1/check-in   { "id_card_number": "...", "deposit": 500000 }
+POST /bookings/1/check-in   { "id_card_number": "..." }
 ```
 
-Lý do: check-in không chỉ đổi một trường. Nó gán phòng vật lý, ghi giấy tờ, thu
-cọc, đổi trạng thái phòng sang `Occupied`. Đó là một **hành động**, không phải
+Lý do: check-in không chỉ đổi một trường. Nó kiểm tra phòng đã sẵn sàng, ghi giấy
+tờ, đổi trạng thái phòng sang `Occupied`. Đó là một **hành động**, không phải
 phép cập nhật trường.
 
 Quy tắc chung: dùng `PUT`/`PATCH` cho sửa dữ liệu thuần túy, dùng
@@ -171,7 +171,7 @@ nghiệp vụ.
 
 ## 8. Response thống nhất
 
-M��i endpoint trả về qua hàm `ok()` trong `app/core/response.py`:
+Mọi endpoint trả về qua hàm `ok()` trong `app/core/response.py`:
 
 ```python
 { "success": true, "data": {...}, "meta": null }
@@ -182,7 +182,7 @@ M��i endpoint trả về qua hàm `ok()` trong `app/core/response.py`:
 Đừng có endpoint này trả `{"data": ...}`, endpoint kia trả thẳng mảng. Frontend
 sẽ phải viết code xử lý riêng cho từng cái.
 
-M� HTTP: `200` đọc · `201` tạo mới · `401` chưa đăng nhập · `403` không đủ quyền ·
+Mã HTTP: `200` đọc · `201` tạo mới · `401` chưa đăng nhập · `403` không đủ quyền ·
 `404` không tìm thấy · `409` xung đột nghiệp vụ · `422` sai dữ liệu đầu vào.
 
 ---
@@ -202,7 +202,7 @@ và dễ lệch nhau.
 
 ## 10. Hàm ngắn, một việc
 
-M��c tham khảo: hàm quá **40 dòng** thì dừng lại xem có tách được không. Không phải
+Mốc tham khảo: hàm quá **40 dòng** thì dừng lại xem có tách được không. Không phải
 luật cứng, nhưng hàm dài thường là dấu hiệu đang làm nhiều việc.
 
 `BookingService.create()` dài vì nó điều phối nhiều bước — nhưng mỗi bước gọi một

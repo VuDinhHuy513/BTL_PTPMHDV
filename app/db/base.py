@@ -10,5 +10,4 @@ class Base(DeclarativeBase):
 # TODO: mở comment dần khi viết xong từng model.
 from app.models import room  # noqa: E402,F401
 
-# from app.models import (audit, booking, customer, housekeeping,  # noqa: E402,F401
-#                         payment, rate, service, user)
+# from app.models import booking, customer, payment, service, user  # noqa: E402,F401
