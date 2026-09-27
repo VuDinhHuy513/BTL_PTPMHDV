@@ -1,18 +1,15 @@
-"""Gom model để import cho gọn: `from app.models import Booking, Room`
-
-TODO: mở comment dần khi viết xong từng model.
-"""
+"""Gom model để import cho gọn: `from app.models import Booking, Room`"""
 from app.models.enums import (BLOCKING_STATUSES, BookingStatus, PaymentMethod,
                               Role, RoomStatus)
 from app.models.room import Room, RoomType
-
-# from app.models.booking import Booking, BookingDetail, BookingNightRate
-# from app.models.customer import Customer
-# from app.models.payment import Invoice, Payment
-# from app.models.service import BookingService, Service
-# from app.models.user import User
+from app.models.booking import Booking, BookingDetail, BookingNightRate
+from app.models.customer import Customer
+from app.models.payment import Invoice, Payment
+from app.models.service import BookingService, Service
+from app.models.user import User
 
 __all__ = [
-    "Role", "RoomStatus", "BookingStatus", "PaymentMethod",
-    "BLOCKING_STATUSES", "Room", "RoomType",
+    "Role", "RoomStatus", "BookingStatus", "PaymentMethod", "BLOCKING_STATUSES",
+    "Room", "RoomType", "User", "Customer", "Service", "BookingService",
+    "Booking", "BookingDetail", "BookingNightRate", "Payment", "Invoice",
 ]
