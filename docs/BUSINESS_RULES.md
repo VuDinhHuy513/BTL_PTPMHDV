@@ -3,8 +3,11 @@
 Đây là "đề bài". Test trong `tests/` được viết đúng theo các quy tắc dưới đây —
 code của bạn làm đúng thì test xanh.
 
-**Bối cảnh:** khách sạn nhỏ, khách gọi điện hoặc đến quầy để đặt phòng. Toàn bộ
-thao tác do **nhân viên** thực hiện trên hệ thống, không có khách tự đặt qua web.
+**Bối cảnh:** khách sạn nhỏ, có hai cách đặt phòng:
+- Khách gọi điện hoặc đến quầy: **nhân viên** thao tác trên hệ thống (R5).
+- Khách tự đặt qua web, **không cần đăng nhập** (R13).
+
+Mọi thao tác còn lại (check-in, check-out, thu tiền, báo cáo…) chỉ nhân viên làm.
 Việc gọi buồng phòng dọn phòng làm ngoài đời, không quản lý trên hệ thống.
 
 ---
@@ -226,10 +229,11 @@ Không có tiền cọc nên hủy hay không đến đều không phát sinh ho
 
 ## R11. Phân quyền
 
-Hệ thống chỉ có 2 vai trò:
+Hệ thống chỉ có 2 vai trò **đăng nhập**, cộng với khách ngoài không có tài khoản:
 
 | Vai trò | Được làm |
 |---|---|
+| Khách (không đăng nhập) | Chỉ 3 thao tác công khai ở R13: tra phòng trống, tự đặt phòng, tra lại booking của mình. Không có quyền nào khác |
 | `Admin` | Toàn quyền: quản lý user, loại phòng, phòng, danh mục dịch vụ, và mọi thao tác của lễ tân |
 | `Receptionist` | Khách hàng, booking (đặt, sửa, hủy, check-in/out, đổi phòng), dịch vụ trong booking, thu/hoàn tiền, hóa đơn, báo cáo, xem danh mục, đổi trạng thái phòng |
 
@@ -251,3 +255,57 @@ RevPAR         = doanh thu phòng / số đêm-phòng có thể bán
 Doanh thu chỉ tính booking đã `CheckedIn` hoặc `CheckedOut`.
 
 Quyền xem báo cáo: Admin và Lễ tân.
+
+---
+
+## R13. Khách tự đặt phòng (không đăng nhập)
+
+Khách đặt trực tiếp qua web, không có tài khoản. Luồng này **dùng lại** R1, R2, R3, R5:
+không viết lại quy tắc, chỉ khác người đặt và cách chọn phòng.
+
+### Khách làm được gì
+
+- **Tra phòng trống** theo khoảng ngày: thấy từng **loại phòng**, số phòng còn,
+  giá một đêm và tổng tiền. **Không** thấy số phòng cụ thể, không thấy sơ đồ phòng,
+  không thấy booking hay thông tin khách khác.
+- **Đặt phòng**: gửi ngày đến, ngày đi, số khách, **loại phòng** và số lượng phòng,
+  họ tên, số điện thoại (email, ghi chú tùy chọn). Khách **không** chọn số phòng.
+- **Tra lại booking** bằng `mã booking` + `số điện thoại`.
+
+### Hệ thống tự gán phòng
+
+Khách chọn loại phòng, hệ thống chọn phòng cụ thể:
+1. Tìm các phòng còn trống của loại đó theo R3, sắp theo `room_number`.
+2. Lấy đủ số phòng khách cần, rồi chạy đúng quy trình khóa của R5 (khóa theo thứ tự
+   `room_id` tăng dần, **kiểm tra lại trong khóa**, rồi mới ghi). Không viết quy trình
+   khóa thứ hai: gọi lại hàm tạo booking của R5.
+3. Nếu một phòng bị người khác giành mất trong lúc khóa, thử phòng trống khác cùng
+   loại. Hết phòng thì báo lỗi.
+
+Chọn ngày mà loại phòng đã hết (mọi phòng đều có booking `Confirmed`/`CheckedIn` giao
+ngày, hoặc `OutOfOrder`) → `BusinessError` code `ROOM_NOT_AVAILABLE`, HTTP 409, không
+tạo booking. Hai khách đặt đồng thời phòng cuối cùng → một thành công, một bị 409.
+
+### Quy tắc khác với luồng nhân viên
+
+- Booking sinh ra ở trạng thái `Confirmed`, có `source = online` (nhân viên tạo thì
+  `source = staff`). Không có bước chờ duyệt, vòng đời R4 giữ nguyên.
+- Khách ngoài **không** sửa được thông tin khách cũ: nếu số điện thoại đã có trong hệ
+  thống thì dùng lại khách đó nhưng **không ghi đè** họ tên, email.
+- Khách ngoài **không** sửa, hủy hay đổi phòng qua web. Muốn thay đổi thì gọi lễ tân,
+  lễ tân dùng các thao tác R6, R7, R10 như bình thường.
+- Check-in, check-out, thanh toán do nhân viên làm như mọi booking khác.
+- Tra lại booking sai mã hoặc sai số điện thoại → trả cùng một lỗi `NotFound`, để không
+  dò ra được mã booking nào tồn tại.
+
+### Chống lạm dụng
+
+Không có tiền cọc, nên có người đặt hàng loạt để giữ hết phòng mà không tốn gì. Giới hạn
+bằng hằng số có tên (không viết số giữa code):
+
+- `MAX_ACTIVE_ONLINE_BOOKINGS_PER_PHONE = 3`: một số điện thoại tối đa 3 booking
+  `source = online` đang `Confirmed`. Vượt → `BusinessError` code `TOO_MANY_ACTIVE_BOOKINGS`.
+- `MAX_ROOMS_PER_ONLINE_BOOKING = 3`: tối đa 3 phòng một lần đặt.
+- Giới hạn tần suất theo IP trên 2 endpoint đặt phòng và tra booking → HTTP 429.
+
+Booking online bỏ ngỏ mà khách không đến: lễ tân đánh `NoShow` theo R10 như thường.

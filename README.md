@@ -53,7 +53,7 @@ viết service → test **xanh**. Cứ thế đi hết.
 |---|---|---|
 | `docs/CONVENTIONS.md` | Quy tắc viết code: phân tầng, không hard-code, đặt tên, xử lý lỗi | **Trước khi gõ dòng đầu tiên** |
 | `docs/BUSINESS_RULES.md` | Đặc tả nghiệp vụ R1–R12 — đây là đề bài | Mỗi lần bắt đầu một phần mới |
-| `docs/API_SPEC.md` | Danh mục 57 endpoint cần làm | Khi viết tầng API |
+| `docs/API_SPEC.md` | Danh mục 60 endpoint cần làm (57 nhân viên + 3 công khai) | Khi viết tầng API |
 
 ---
 

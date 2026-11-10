@@ -77,8 +77,15 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ⬜ | POST | `/users` | Admin |
 | ⬜ | PUT | `/users/{id}` | Admin |
 | ⬜ | PATCH | `/users/{id}/status` | Admin |
+| | | **12. Khách tự đặt** (R13) — prefix `/public`, không cần đăng nhập | |
+| ⬜ | GET | `/public/availability?check_in=&check_out=&guests=` | Public |
+| ⬜ | POST | `/public/bookings` (body có `room_type_id` + `quantity`, **không** có `room_ids`) | Public |
+| ⬜ | GET | `/public/bookings/{code}?phone=` | Public |
 
-**Tổng: 57 endpoint.**
+**Tổng: 60 endpoint** (57 của nhân viên + 3 công khai).
+
+Nhóm 12 trả ít dữ liệu hơn bản nhân viên: không có số phòng cụ thể, không có thông tin
+khách khác. Giới hạn tần suất theo IP → 429. Chi tiết ở `docs/BUSINESS_RULES.md` R13.
 
 Nếu thiếu thời gian, cắt theo thứ tự: `/reports/adr-revpar` → `/bookings/{id}/change-room`
 → `/rooms/schedule`. Không cắt nhóm 04, 06, 07, 09 — đó là xương sống.

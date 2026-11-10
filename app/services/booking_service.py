@@ -1,7 +1,8 @@
 """Đặt phòng, nhận phòng, trả phòng. Xem R4 → R8, R10.
 
-Booking do NHÂN VIÊN tạo (khách gọi điện hoặc đến quầy), không có khách tự đặt.
-Nhân viên chọn đúng phòng (room_ids) ngay lúc đặt.
+Booking do NHÂN VIÊN tạo (khách gọi điện hoặc đến quầy): nhân viên chọn đúng phòng
+(room_ids) ngay lúc đặt. Khách cũng có thể tự đặt không cần đăng nhập (R13): khách chỉ
+chọn loại phòng, hệ thống tự gán phòng rồi gọi lại create() — không viết khóa thứ hai.
 
 Test tương ứng: tests/test_booking_flow.py
 """
