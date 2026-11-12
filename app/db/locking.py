@@ -28,12 +28,6 @@
 ║   db.commit()                   ← khóa tự nhả ở đây                      ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-TODO — viết hàm lock_rooms(db, room_ids).
-
-    ids = sorted(set(room_ids))
-    db.execute(select(Room.id).where(Room.id.in_(ids))
-                              .order_by(Room.id).with_for_update())
-
 MySQL (InnoDB) và PostgreSQL đều hỗ trợ SELECT ... FOR UPDATE: khóa hàng tự
 nhả khi COMMIT/ROLLBACK, không cần nhả tay. Không cần GET_LOCK hay advisory lock.
 
@@ -48,3 +42,18 @@ Giới hạn cần nêu trong báo cáo: MySQL không có ràng buộc "cấm ha
 chồng nhau trên cùng một phòng" ở mức database, nên chống trùng dựa hoàn toàn
 vào khóa này ở tầng code.
 """
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.room import Room
+
+
+def lock_rooms(db: Session, room_ids: list[int]) -> None:
+    """Khóa các dòng phòng bằng SELECT ... FOR UPDATE cho tới khi commit/rollback.
+
+    Gọi TRƯỚC khi kiểm tra phòng trống. Luôn khóa theo room_id tăng dần.
+    """
+    ids = sorted(set(room_ids))
+    db.execute(select(Room.id).where(Room.id.in_(ids))
+               .order_by(Room.id).with_for_update())

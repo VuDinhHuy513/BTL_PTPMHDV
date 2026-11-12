@@ -7,10 +7,15 @@ nhau về ngày. Số phòng trống của một loại = số phòng của lo�
 Test tương ứng: tests/test_availability.py
 """
 import datetime as dt
+from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.room import Room
+from app.core.exceptions import BusinessError
+from app.models import BLOCKING_STATUSES, Booking, BookingDetail, Room, RoomStatus, RoomType
+from app.schemas.availability import (AvailabilityOut, AvailabilitySearchOut,
+                                      NightRateOut, RoomBriefOut)
 from app.services.pricing_service import PricingService
 
 
@@ -24,23 +29,21 @@ class AvailabilityService:
         self, check_in: dt.date, check_out: dt.date,
         exclude_booking_id: int | None = None,
     ) -> set[int]:
-        """Id các phòng đang bị chiếm trong khoảng ngày.
+        """Id các phòng đang bị chiếm trong khoảng ngày [check_in, check_out).
 
-        TODO — JOIN BookingDetail với Booking, lấy BookingDetail.room_id, WHERE:
-          - Booking.status IN BLOCKING_STATUSES   (chỉ Confirmed + CheckedIn)
-          - Booking.deleted_at IS NULL
-          - Booking.check_in  <  check_out        ┐ công thức giao nhau
-          - Booking.check_out >  check_in         ┘ hai khoảng thời gian
-          - nếu có exclude_booking_id: Booking.id != exclude_booking_id
-
-        ⚠ Dùng < và >, KHÔNG dùng <= và >=.
-          Khách A trả phòng ngày 05, khách B nhận phòng ngày 05 → không trùng.
-          Đây là case biên hay sai nhất, có test riêng cho nó.
-
-        ⚠ exclude_booking_id dùng khi SỬA booking: không được tính chính nó
-          là đang chiếm phòng, nếu không sẽ tự chặn chính mình.
+        Dùng < và >, KHÔNG dùng <= và >=: khách A trả phòng ngày 05, khách B
+        nhận phòng ngày 05 → không trùng. exclude_booking_id dùng khi SỬA booking
+        để không tự chặn chính nó.
         """
-        raise NotImplementedError("TODO")
+        stmt = (select(BookingDetail.room_id)
+                .join(Booking, Booking.id == BookingDetail.booking_id)
+                .where(Booking.status.in_([s.value for s in BLOCKING_STATUSES]),
+                       Booking.deleted_at.is_(None),
+                       Booking.check_in < check_out,
+                       Booking.check_out > check_in))
+        if exclude_booking_id is not None:
+            stmt = stmt.where(Booking.id != exclude_booking_id)
+        return set(self.db.scalars(stmt).all())
 
     # ------------------------------------------------------------- public
     def free_rooms(self, room_type_id: int, check_in: dt.date,
@@ -48,41 +51,59 @@ class AvailabilityService:
                    exclude_booking_id: int | None = None) -> list[Room]:
         """Danh sách PHÒNG CỤ THỂ còn trống của một loại — lễ tân chọn từ đây.
 
-        TODO:
-          - busy = self._busy_room_ids(check_in, check_out, exclude_booking_id)
-          - SELECT Room WHERE room_type_id khớp
-                       AND status != OutOfOrder
-                       AND id NOT IN busy
-          - ORDER BY floor, room_number
-
         Không lọc theo Dirty/Occupied: đó là trạng thái HIỆN TẠI, phòng đang
         Dirty hôm nay vẫn bán được cho ngày mai. Việc phòng đã sẵn sàng hay
         chưa chỉ kiểm tra lúc check-in.
         """
-        raise NotImplementedError("TODO")
+        busy = self._busy_room_ids(check_in, check_out, exclude_booking_id)
+        stmt = (select(Room)
+                .where(Room.room_type_id == room_type_id,
+                       Room.status != RoomStatus.OUT_OF_ORDER.value)
+                .order_by(Room.floor, Room.room_number))
+        if busy:
+            stmt = stmt.where(Room.id.not_in(busy))
+        return list(self.db.scalars(stmt).all())
 
     def count_available(self, room_type_id: int, check_in: dt.date,
                         check_out: dt.date,
                         exclude_booking_id: int | None = None) -> int:
-        """Số phòng còn trống của MỘT loại. TODO: len(free_rooms(...))."""
-        raise NotImplementedError("TODO")
+        """Số phòng còn trống của MỘT loại."""
+        return len(self.free_rooms(room_type_id, check_in, check_out,
+                                   exclude_booking_id))
 
     def search(self, check_in: dt.date, check_out: dt.date, guests: int = 1,
                exclude_booking_id: int | None = None):
         """Tra phòng trống theo LOẠI, kèm danh sách phòng cụ thể, giá và tổng tiền.
 
-        TODO:
-          1. Validate check_out > check_in, không thì raise BusinessError.
-          2. Lấy các loại phòng có capacity >= guests. guests chỉ là bộ lọc
-             "một phòng chứa đủ cả nhóm"; không truyền thì guests=1 (hiện tất
-             cả loại). Nhóm đông có thể đặt nhiều phòng, việc kiểm tra tổng
-             sức chứa nằm ở BookingService.create.
-          3. Với mỗi loại: rooms = free_rooms(...). Bỏ qua nếu rỗng.
-          4. Gọi pricing.get_nightly_rates để lấy giá từng đêm + tổng tiền
-             (của MỘT phòng loại đó).
-          5. Trả về AvailabilitySearchOut; available_count = len(rooms).
+        guests chỉ là bộ lọc "một phòng chứa đủ cả nhóm"; nhóm đông có thể đặt
+        nhiều phòng, việc kiểm tra tổng sức chứa nằm ở BookingService.create.
         """
-        raise NotImplementedError("TODO")
+        if check_out <= check_in:
+            raise BusinessError("Ngày trả phòng phải sau ngày nhận phòng",
+                                code="INVALID_DATE_RANGE")
+
+        room_types = self.db.scalars(
+            select(RoomType).where(RoomType.capacity >= guests)
+            .order_by(RoomType.base_price)).all()
+
+        result: list[AvailabilityOut] = []
+        for rt in room_types:
+            rooms = self.free_rooms(rt.id, check_in, check_out, exclude_booking_id)
+            if not rooms:
+                continue
+            rates = self.pricing.get_nightly_rates(rt.id, check_in, check_out)
+            result.append(AvailabilityOut(
+                room_type_id=rt.id, name=rt.name, capacity=rt.capacity,
+                available_count=len(rooms),
+                rooms=[RoomBriefOut(id=r.id, room_number=r.room_number,
+                                    floor=r.floor) for r in rooms],
+                nightly_rates=[NightRateOut(date=d, price=p) for d, p in rates],
+                total_price=sum((p for _, p in rates), Decimal("0"))))
+
+        return AvailabilitySearchOut(
+            check_in=check_in, check_out=check_out,
+            nights=(check_out - check_in).days, guests=guests,
+            room_types=result)
 
     def schedule(self, from_date: dt.date, to_date: dt.date):
         """Sơ đồ phòng theo ngày: mỗi phòng kèm các booking đang giữ nó trong
