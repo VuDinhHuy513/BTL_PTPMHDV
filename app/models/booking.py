@@ -10,7 +10,7 @@ from sqlalchemy import (Date, DateTime, ForeignKey, Index, Integer, Numeric,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import BookingStatus
+from app.models.enums import BookingSource, BookingStatus
 
 
 class Booking(Base):
@@ -25,6 +25,9 @@ class Booking(Base):
     guests: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[BookingStatus] = mapped_column(
         String(20), default=BookingStatus.CONFIRMED)
+    # staff = nhân viên tạo, online = khách tự đặt (R13). server_default để dòng cũ có giá trị.
+    source: Mapped[BookingSource] = mapped_column(
+        String(20), default=BookingSource.STAFF, server_default=BookingSource.STAFF.value)
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.now)

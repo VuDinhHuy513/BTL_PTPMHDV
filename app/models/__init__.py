@@ -1,6 +1,6 @@
 """Gom model để import cho gọn: `from app.models import Booking, Room`"""
-from app.models.enums import (BLOCKING_STATUSES, BookingStatus, PaymentMethod,
-                              Role, RoomStatus)
+from app.models.enums import (BLOCKING_STATUSES, BookingSource, BookingStatus,
+                              PaymentMethod, Role, RoomStatus)
 from app.models.room import Room, RoomType
 from app.models.booking import Booking, BookingDetail, BookingNightRate
 from app.models.customer import Customer
@@ -9,7 +9,8 @@ from app.models.service import BookingService, Service
 from app.models.user import User
 
 __all__ = [
-    "Role", "RoomStatus", "BookingStatus", "PaymentMethod", "BLOCKING_STATUSES",
+    "Role", "RoomStatus", "BookingStatus", "BookingSource", "PaymentMethod",
+    "BLOCKING_STATUSES",
     "Room", "RoomType", "User", "Customer", "Service", "BookingService",
     "Booking", "BookingDetail", "BookingNightRate", "Payment", "Invoice",
 ]

@@ -23,6 +23,12 @@ class BookingStatus(str, Enum):
     NO_SHOW = "NoShow"
 
 
+class BookingSource(str, Enum):
+    """Ai tạo booking: nhân viên (gọi điện, đến quầy) hay khách tự đặt qua web (R13)."""
+    STAFF = "staff"
+    ONLINE = "online"
+
+
 # Chỉ 2 trạng thái này mới thực sự chiếm phòng.
 # Cancelled/NoShow/CheckedOut KHÔNG chặn phòng.
 BLOCKING_STATUSES = (BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN)
