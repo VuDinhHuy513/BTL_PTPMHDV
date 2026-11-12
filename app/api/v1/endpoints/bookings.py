@@ -1,4 +1,7 @@
-"""TODO — endpoint booking. Nhóm nhiều endpoint nhất, làm sau availability.
+"""Endpoint booking. Nhóm nhiều endpoint nhất.
+
+Đã làm: POST /bookings, GET /bookings/{id}, GET /bookings/code/{code}.
+Còn lại: xem danh sách bên dưới.
 
 Quyền: tất cả dùng require_front_desk (Admin + Lễ tân).
 
@@ -33,6 +36,34 @@ DỊCH VỤ & THANH TOÁN
   phải đặt TRƯỚC /bookings/{id}, nếu không FastAPI khớp "walk-in" vào {id}
   rồi báo lỗi không parse được thành int.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.deps import require_front_desk
+from app.core.response import ok
+from app.db.session import get_db
+from app.models import BookingSource
+from app.schemas.booking import BookingCreateIn, BookingOut
+from app.services.booking_service import BookingService
 
 router = APIRouter(prefix="/bookings", tags=["06. Đặt phòng"])
+
+
+@router.post("", status_code=201, summary="Nhân viên đặt phòng")
+def create_booking(dto: BookingCreateIn, db: Session = Depends(get_db),
+                   _=Depends(require_front_desk)):
+    booking = BookingService(db).create(dto, source=BookingSource.STAFF)
+    return ok(BookingOut.model_validate(booking))
+
+
+# /code/{code} khai báo TRƯỚC /{booking_id}, nếu không "code" bị khớp vào {booking_id}
+@router.get("/code/{code}", summary="Tra booking theo mã")
+def get_booking_by_code(code: str, db: Session = Depends(get_db),
+                        _=Depends(require_front_desk)):
+    return ok(BookingOut.model_validate(BookingService(db).get_by_code(code)))
+
+
+@router.get("/{booking_id}", summary="Chi tiết booking")
+def get_booking(booking_id: int, db: Session = Depends(get_db),
+                _=Depends(require_front_desk)):
+    return ok(BookingOut.model_validate(BookingService(db).get(booking_id)))

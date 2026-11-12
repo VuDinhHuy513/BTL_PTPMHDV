@@ -56,6 +56,10 @@ class Booking(Base):
         # check_out không tính đêm: 01→05 là 4 đêm (R1)
         return (self.check_out - self.check_in).days
 
+    @property
+    def room_charge(self) -> Decimal:
+        return sum((d.room_charge for d in self.details), Decimal("0"))
+
 
 class BookingDetail(Base):
     """Mỗi dòng là MỘT phòng trong booking."""
