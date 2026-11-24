@@ -1,6 +1,6 @@
 """Endpoint booking. Nhóm nhiều endpoint nhất.
 
-Đã làm: POST /bookings, GET /bookings/{id}, GET /bookings/code/{code}.
+Đã làm: GET /bookings, POST /bookings, GET /bookings/{id}, GET /bookings/code/{code}.
 Còn lại: xem danh sách bên dưới.
 
 Quyền: tất cả dùng require_front_desk (Admin + Lễ tân).
@@ -36,17 +36,44 @@ DỊCH VỤ & THANH TOÁN
   phải đặt TRƯỚC /bookings/{id}, nếu không FastAPI khớp "walk-in" vào {id}
   rồi báo lỗi không parse được thành int.
 """
-from fastapi import APIRouter, Depends
+import datetime as dt
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_front_desk
-from app.core.response import ok
+from app.core.response import PageMeta, ok
 from app.db.session import get_db
-from app.models import BookingSource
+from app.models import BookingSource, BookingStatus
 from app.schemas.booking import BookingCreateIn, BookingOut
+from app.schemas.common import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.services.booking_service import BookingService
 
 router = APIRouter(prefix="/bookings", tags=["06. Đặt phòng"])
+
+
+@router.get("", summary="Danh sách booking (lọc + phân trang)")
+def list_bookings(
+        status: BookingStatus | None = Query(default=None),
+        # "from" là từ khóa Python nên tên biến là from_date, alias giữ URL là ?from=
+        from_date: dt.date | None = Query(default=None, alias="from"),
+        to_date: dt.date | None = Query(default=None, alias="to"),
+        customer_id: int | None = Query(default=None, ge=1),
+        page: int = Query(default=1, ge=1),
+        limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+        db: Session = Depends(get_db), _=Depends(require_front_desk)):
+    # Kiểm tra quan hệ giữa 2 tham số → lỗi đầu vào (422), không phải lỗi nghiệp vụ
+    if from_date and to_date and to_date <= from_date:
+        raise RequestValidationError([{
+            "type": "value_error", "loc": ("query", "to"),
+            "msg": "to phải sau from", "input": to_date.isoformat()}])
+
+    bookings, total = BookingService(db).list(
+        status=status, from_date=from_date, to_date=to_date,
+        customer_id=customer_id, page=page, limit=limit)
+    return ok([BookingOut.model_validate(b) for b in bookings],
+              meta=PageMeta(page=page, limit=limit, total=total))
 
 
 @router.post("", status_code=201, summary="Nhân viên đặt phòng")

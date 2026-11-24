@@ -9,13 +9,14 @@ Test tương ứng: tests/test_booking_flow.py
 import datetime as dt
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import BusinessError, NotFoundError
 from app.db.locking import lock_rooms
 from app.models import (Booking, BookingDetail, BookingNightRate, BookingSource,
                         BookingStatus, Customer, Room, RoomStatus)
+from app.schemas.common import DEFAULT_PAGE_LIMIT
 from app.services.availability_service import AvailabilityService
 from app.services.pricing_service import PricingService
 
@@ -162,10 +163,38 @@ class BookingService:
             raise NotFoundError("Booking", code)
         return self._load(booking_id)
 
-    def list(self, *, status=None, from_date=None, to_date=None,
-             customer_id=None, page: int = 1, limit: int = 20):
-        """TODO: trả về (danh_sách, tổng_số) để endpoint dựng PageMeta."""
-        raise NotImplementedError("TODO")
+    def list(self, *, status: BookingStatus | None = None,
+             from_date: dt.date | None = None, to_date: dt.date | None = None,
+             customer_id: int | None = None, page: int = 1,
+             limit: int = DEFAULT_PAGE_LIMIT) -> tuple[list[Booking], int]:
+        """Danh sách booking có lọc + phân trang. Trả về (danh_sách, tổng_số).
+
+        from/to lọc theo kỳ ở GIAO NHAU với [from_date, to_date) — cùng công
+        thức < và > của R3. Ví dụ hỏi "booking nào có khách ở trong tuần này"
+        thì booking đến từ tuần trước nhưng còn ở sang tuần này vẫn hiện ra.
+        """
+        conditions = [Booking.deleted_at.is_(None)]       # không hiện booking đã xóa mềm
+        if status is not None:
+            conditions.append(Booking.status == status)
+        if customer_id is not None:
+            conditions.append(Booking.customer_id == customer_id)
+        if to_date is not None:
+            conditions.append(Booking.check_in < to_date)
+        if from_date is not None:
+            conditions.append(Booking.check_out > from_date)
+
+        # Đếm tổng trên CÙNG điều kiện lọc, nhưng không phân trang
+        total = self.db.scalar(select(func.count(Booking.id)).where(*conditions))
+
+        stmt = (select(Booking).where(*conditions)
+                .options(selectinload(Booking.customer),
+                         selectinload(Booking.details).selectinload(BookingDetail.room),
+                         selectinload(Booking.details).selectinload(BookingDetail.night_rates))
+                # id làm tiêu chí phụ: hai booking cùng created_at vẫn có thứ tự cố định,
+                # không thì chuyển trang có thể lặp/mất dòng
+                .order_by(Booking.created_at.desc(), Booking.id.desc())
+                .offset((page - 1) * limit).limit(limit))
+        return list(self.db.scalars(stmt).all()), total
 
     # ------------------------------------------------------------- UPDATE
     def update(self, booking_id: int, dto):

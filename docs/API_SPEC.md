@@ -38,7 +38,7 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ⬜ | POST | `/customers` | Nhân viên |
 | ⬜ | PUT | `/customers/{id}` | Nhân viên |
 | | | **06. Đặt phòng** ⭐ | |
-| ⬜ | GET | `/bookings?status=&from=&to=&customer_id=&page=` | Nhân viên |
+| ✅ | GET | `/bookings?status=&from=&to=&customer_id=&page=` | Nhân viên |
 | ⬜ | GET | `/bookings/{id}` | Nhân viên |
 | ⬜ | GET | `/bookings/code/{code}` | Nhân viên |
 | ⬜ | POST | `/bookings` (body có `room_ids`) | Nhân viên |
