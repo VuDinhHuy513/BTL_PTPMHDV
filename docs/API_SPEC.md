@@ -32,11 +32,11 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ⬜ | GET | `/availability?check_in=&check_out=&guests=` | Nhân viên |
 | ⬜ | GET | `/availability/rooms?room_type_id=&check_in=&check_out=` | Nhân viên |
 | | | **05. Khách hàng** | |
-| ⬜ | GET | `/customers?search=&page=&limit=` | Nhân viên |
-| ⬜ | GET | `/customers/{id}` | Nhân viên |
-| ⬜ | GET | `/customers/{id}/bookings` | Nhân viên |
-| ⬜ | POST | `/customers` | Nhân viên |
-| ⬜ | PUT | `/customers/{id}` | Nhân viên |
+| ✅ | GET | `/customers?search=&page=&limit=` | Nhân viên |
+| ✅ | GET | `/customers/{id}` | Nhân viên |
+| ✅ | GET | `/customers/{id}/bookings` | Nhân viên |
+| ✅ | POST | `/customers` | Nhân viên |
+| ✅ | PUT | `/customers/{id}` | Nhân viên |
 | | | **06. Đặt phòng** ⭐ | |
 | ✅ | GET | `/bookings?status=&from=&to=&customer_id=&page=` | Nhân viên |
 | ⬜ | GET | `/bookings/{id}` | Nhân viên |
