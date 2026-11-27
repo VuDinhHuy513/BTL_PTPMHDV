@@ -22,7 +22,7 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ✅ | DELETE | `/room-types/{id}` | Admin |
 | | | **03. Phòng** | |
 | ⬜ | GET | `/rooms?floor=&room_type_id=&status=` | Mọi vai trò |
-| ⬜ | GET | `/rooms/schedule?from=&to=` (sơ đồ phòng theo ngày) | Nhân viên |
+| ✅ | GET | `/rooms/schedule?from=&to=` (sơ đồ phòng theo ngày) | Nhân viên |
 | ⬜ | GET | `/rooms/{id}` | Mọi vai trò |
 | ⬜ | POST | `/rooms` | Admin |
 | ⬜ | PUT | `/rooms/{id}` | Admin |

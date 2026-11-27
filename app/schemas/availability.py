@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.models.enums import BookingStatus, RoomStatus
+
 
 class NightRateOut(BaseModel):
     date: dt.date
@@ -31,3 +33,24 @@ class AvailabilitySearchOut(BaseModel):
     nights: int
     guests: int
     room_types: list[AvailabilityOut]
+
+
+class ScheduleBookingOut(BaseModel):
+    """Một booking đang giữ phòng, hiển thị trên sơ đồ phòng."""
+    booking_id: int
+    code: str
+    customer_name: str
+    check_in: dt.date
+    check_out: dt.date
+    status: BookingStatus
+
+
+class RoomScheduleOut(BaseModel):
+    """Một hàng của sơ đồ phòng: phòng + các booking giữ nó trong khoảng xem."""
+    room_id: int
+    room_number: str
+    floor: int
+    room_type_id: int
+    room_type_name: str
+    status: RoomStatus                  # trạng thái HIỆN TẠI (có cả OutOfOrder)
+    bookings: list[ScheduleBookingOut]  # rỗng = trống suốt khoảng xem

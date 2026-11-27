@@ -7,16 +7,22 @@ nhau về ngày. Số phòng trống của một loại = số phòng của lo�
 Test tương ứng: tests/test_availability.py
 """
 import datetime as dt
+from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessError
-from app.models import BLOCKING_STATUSES, Booking, BookingDetail, Room, RoomStatus, RoomType
+from app.models import (BLOCKING_STATUSES, Booking, BookingDetail, Customer, Room,
+                        RoomStatus, RoomType)
 from app.schemas.availability import (AvailabilityOut, AvailabilitySearchOut,
-                                      NightRateOut, RoomBriefOut)
+                                      NightRateOut, RoomBriefOut, RoomScheduleOut,
+                                      ScheduleBookingOut)
 from app.services.pricing_service import PricingService
+
+# Sơ đồ phòng xem tối đa ~2 tháng một lần: đủ cho lễ tân, không quét cả năm
+MAX_SCHEDULE_DAYS = 62
 
 
 class AvailabilityService:
@@ -105,18 +111,50 @@ class AvailabilityService:
             nights=(check_out - check_in).days, guests=guests,
             room_types=result)
 
-    def schedule(self, from_date: dt.date, to_date: dt.date):
+    def schedule(self, from_date: dt.date, to_date: dt.date) -> list[RoomScheduleOut]:
         """Sơ đồ phòng theo ngày: mỗi phòng kèm các booking đang giữ nó trong
         khoảng [from_date, to_date). Phục vụ GET /rooms/schedule.
 
-        TODO:
-          - Lấy mọi phòng (kể cả OutOfOrder, ghi rõ trạng thái), ORDER BY floor,
-            room_number.
-          - Với mỗi phòng: các booking BLOCKING_STATUSES, chưa xóa mềm, giao
-            nhau với khoảng (cùng công thức < và >) → [{booking_id, code,
-            customer_name, check_in, check_out, status}].
-          - Gom bằng MỘT truy vấn cho tất cả booking rồi chia theo room_id,
-            đừng truy vấn từng phòng một (N+1).
-          - Giới hạn khoảng tối đa 62 ngày (đặt tên hằng số) để không quét quá lớn.
+        Đúng 2 truy vấn dù khách sạn có bao nhiêu phòng: một lấy mọi phòng, một
+        lấy MỌI booking giao khoảng rồi chia theo room_id bằng Python. Truy vấn
+        từng phòng một là lỗi N+1 (48 phòng = 49 truy vấn).
         """
-        raise NotImplementedError("TODO")
+        if to_date <= from_date:
+            raise BusinessError("Ngày kết thúc phải sau ngày bắt đầu",
+                                code="INVALID_DATE_RANGE")
+        if (to_date - from_date).days > MAX_SCHEDULE_DAYS:
+            raise BusinessError(
+                f"Sơ đồ phòng xem tối đa {MAX_SCHEDULE_DAYS} ngày mỗi lần",
+                code="DATE_RANGE_TOO_LONG")
+
+        # Lấy MỌI phòng, kể cả OutOfOrder: sơ đồ phải cho thấy phòng đang bảo trì
+        rooms = self.db.execute(
+            select(Room, RoomType.name)
+            .join(RoomType, RoomType.id == Room.room_type_id)
+            .order_by(Room.floor, Room.room_number)).all()
+
+        # Chỉ booking đang GIỮ phòng (Confirmed/CheckedIn), cùng công thức giao
+        # nhau < và > với tra phòng trống (R3)
+        rows = self.db.execute(
+            select(BookingDetail.room_id, Booking.id, Booking.code,
+                   Customer.full_name, Booking.check_in, Booking.check_out,
+                   Booking.status)
+            .join(Booking, Booking.id == BookingDetail.booking_id)
+            .join(Customer, Customer.id == Booking.customer_id)
+            .where(Booking.status.in_([s.value for s in BLOCKING_STATUSES]),
+                   Booking.deleted_at.is_(None),
+                   Booking.check_in < to_date,
+                   Booking.check_out > from_date)
+            .order_by(Booking.check_in)).all()
+
+        by_room: dict[int, list[ScheduleBookingOut]] = defaultdict(list)
+        for room_id, booking_id, code, name, check_in, check_out, status in rows:
+            by_room[room_id].append(ScheduleBookingOut(
+                booking_id=booking_id, code=code, customer_name=name,
+                check_in=check_in, check_out=check_out, status=status))
+
+        return [RoomScheduleOut(
+                    room_id=room.id, room_number=room.room_number, floor=room.floor,
+                    room_type_id=room.room_type_id, room_type_name=type_name,
+                    status=room.status, bookings=by_room.get(room.id, []))
+                for room, type_name in rooms]

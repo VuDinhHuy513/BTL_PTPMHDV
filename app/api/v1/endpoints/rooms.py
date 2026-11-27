@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +10,7 @@ from app.core.response import ok
 from app.db.session import get_db
 from app.models import BookingDetail, Room, RoomStatus
 from app.schemas.room import RoomIn, RoomOut, RoomStatusIn
+from app.services.availability_service import AvailabilityService
 
 router = APIRouter(prefix="/rooms", tags=["03. Phòng"])
 
@@ -26,6 +29,17 @@ def list_rooms(floor: int | None = Query(default=None),
         stmt = stmt.where(Room.status == status)
     rows = db.scalars(stmt.order_by(Room.floor, Room.room_number)).all()
     return ok([RoomOut.model_validate(r) for r in rows])
+
+
+# PHẢI khai báo TRƯỚC /{room_id}: không thì FastAPI khớp "schedule" vào {room_id},
+# không chuyển được sang int → 422
+@router.get("/schedule", summary="Sơ đồ phòng theo ngày (mỗi phòng kèm booking đang giữ)")
+def room_schedule(
+        from_date: dt.date = Query(alias="from", description="Ngày bắt đầu, YYYY-MM-DD"),
+        to_date: dt.date = Query(alias="to",
+                                 description="Ngày kết thúc (không tính), YYYY-MM-DD"),
+        db: Session = Depends(get_db), _=Depends(require_front_desk)):
+    return ok(AvailabilityService(db).schedule(from_date, to_date))
 
 
 @router.get("/{room_id}", summary="Chi tiết phòng")
