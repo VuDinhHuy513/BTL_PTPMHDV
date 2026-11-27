@@ -1,6 +1,7 @@
 """Endpoint booking. Nhóm nhiều endpoint nhất.
 
-Đã làm: GET /bookings, POST /bookings, GET /bookings/{id}, GET /bookings/code/{code}.
+Đã làm: GET /bookings, POST /bookings, GET /bookings/{id}, GET /bookings/code/{code},
+        PUT/DELETE /bookings/{id}, POST /bookings/{id}/cancel, POST /bookings/{id}/no-show.
 Còn lại: xem danh sách bên dưới.
 
 Quyền: tất cả dùng require_front_desk (Admin + Lễ tân).
@@ -46,8 +47,9 @@ from app.core.deps import require_front_desk
 from app.core.response import PageMeta, ok
 from app.db.session import get_db
 from app.models import BookingSource, BookingStatus
-from app.schemas.booking import BookingCreateIn, BookingOut
-from app.schemas.common import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
+from app.schemas.booking import (BookingCreateIn, BookingOut, BookingUpdateIn,
+                                 CancelIn)
+from app.schemas.common import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, MessageOut
 from app.services.booking_service import BookingService
 
 router = APIRouter(prefix="/bookings", tags=["06. Đặt phòng"])
@@ -94,3 +96,30 @@ def get_booking_by_code(code: str, db: Session = Depends(get_db),
 def get_booking(booking_id: int, db: Session = Depends(get_db),
                 _=Depends(require_front_desk)):
     return ok(BookingOut.model_validate(BookingService(db).get(booking_id)))
+
+
+@router.put("/{booking_id}", summary="Sửa ngày ở / số khách / ghi chú (chỉ khi Confirmed)")
+def update_booking(booking_id: int, dto: BookingUpdateIn, db: Session = Depends(get_db),
+                   _=Depends(require_front_desk)):
+    return ok(BookingOut.model_validate(BookingService(db).update(booking_id, dto)))
+
+
+@router.delete("/{booking_id}", summary="Xóa mềm booking")
+def delete_booking(booking_id: int, db: Session = Depends(get_db),
+                   _=Depends(require_front_desk)):
+    BookingService(db).soft_delete(booking_id)
+    return ok(MessageOut(message="Đã xóa booking"))
+
+
+# Chuyển trạng thái dùng POST /{id}/{hành-động}, không PUT sửa status (CONVENTIONS mục 7)
+@router.post("/{booking_id}/cancel", summary="Hủy booking (chỉ khi Confirmed)")
+def cancel_booking(booking_id: int, dto: CancelIn, db: Session = Depends(get_db),
+                   _=Depends(require_front_desk)):
+    booking = BookingService(db).cancel(booking_id, dto.reason)
+    return ok(BookingOut.model_validate(booking))
+
+
+@router.post("/{booking_id}/no-show", summary="Đánh dấu khách không đến")
+def no_show_booking(booking_id: int, db: Session = Depends(get_db),
+                    _=Depends(require_front_desk)):
+    return ok(BookingOut.model_validate(BookingService(db).no_show(booking_id)))

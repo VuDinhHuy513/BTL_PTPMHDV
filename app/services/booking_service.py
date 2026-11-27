@@ -33,6 +33,17 @@ ALLOWED_TRANSITIONS: dict[BookingStatus, set[BookingStatus]] = {
 
 MAX_NIGHTS_PER_BOOKING = 60      # hằng số có tên, không viết số 60 giữa code
 
+# Booking đã gắn với khách thật trong phòng / tiền / hóa đơn thì không được xóa
+UNDELETABLE_STATUSES = (BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT)
+
+
+# Để ngoài class: trong class có hàm tên `list`, viết `list[Room]` bên dưới
+# hàm đó thì Python hiểu `list` là hàm chứ không phải kiểu list
+def _check_capacity(rooms: list[Room], guests: int) -> None:
+    if guests > sum(r.room_type.capacity for r in rooms):
+        raise BusinessError("Số khách vượt quá tổng sức chứa các phòng đã chọn",
+                            code="GUESTS_EXCEED_CAPACITY")
+
 
 class BookingService:
     def __init__(self, db: Session) -> None:
@@ -42,9 +53,26 @@ class BookingService:
 
     # ------------------------------------------------------------- helper
     def _ensure_transition(self, booking, target: BookingStatus) -> None:
-        """TODO: nếu target không nằm trong ALLOWED_TRANSITIONS[hiện tại]
-        thì raise BusinessError code INVALID_STATUS_TRANSITION."""
-        raise NotImplementedError("TODO")
+        """Chặn mọi bước chuyển không có trong sơ đồ R4."""
+        current = BookingStatus(booking.status)
+        if target not in ALLOWED_TRANSITIONS[current]:
+            raise BusinessError(
+                f"Không thể chuyển booking từ {current.value} sang {target.value}",
+                code="INVALID_STATUS_TRANSITION")
+
+    def _lock_booking(self, booking_id: int) -> None:
+        """Khóa dòng booking (SELECT ... FOR UPDATE) trước khi đổi trạng thái.
+
+        Hai lễ tân cùng bấm, một người "Hủy", một người "Check-in": không khóa
+        thì cả hai cùng đọc thấy Confirmed và cùng chạy được. Có khóa thì người
+        sau phải đợi, đọc lại thấy trạng thái mới và bị _ensure_transition chặn.
+        """
+        found = self.db.scalar(
+            select(Booking.id)
+            .where(Booking.id == booking_id, Booking.deleted_at.is_(None))
+            .with_for_update())
+        if found is None:
+            raise NotFoundError("Booking", booking_id)
 
     def _load(self, booking_id: int) -> Booking:
         """Nạp booking kèm details, night_rates, room, customer (selectinload, tránh N+1).
@@ -105,9 +133,7 @@ class BookingService:
                     f"Phòng {room.room_number} không còn trống trong khoảng ngày đã chọn",
                     code="ROOM_NOT_AVAILABLE")
 
-        if guests > sum(r.room_type.capacity for r in rooms):
-            raise BusinessError("Số khách vượt quá tổng sức chứa các phòng đã chọn",
-                                code="GUESTS_EXCEED_CAPACITY")
+        _check_capacity(rooms, guests)
         return rooms
 
     def _new_code(self) -> str:
@@ -197,36 +223,105 @@ class BookingService:
         return list(self.db.scalars(stmt).all()), total
 
     # ------------------------------------------------------------- UPDATE
-    def update(self, booking_id: int, dto):
+    def update(self, booking_id: int, dto) -> Booking:
         """Sửa ngày ở / số khách / ghi chú. Xem R6.
 
-        TODO:
-          - Chỉ cho sửa khi Confirmed.
-          - Khóa CHÍNH các phòng booking đang giữ, rồi _check_rooms_bookable
-            cho ngày MỚI, nhớ truyền exclude_booking_id=booking.id
-            ← nếu không sẽ tự chặn chính mình.
-          - Xóa BookingNightRate cũ, tạo lại theo bảng giá hiện hành.
-          - Muốn đổi sang phòng khác thì dùng change_room, không sửa ở đây.
+        Đổi ngày → kiểm tra lại phòng trống (loại trừ chính booking này) và
+        chốt lại giá từng đêm theo base_price HIỆN HÀNH.
+        Chỉ đổi số khách / ghi chú → giữ nguyên giá đã chốt, chỉ kiểm sức chứa.
+        Muốn đổi sang phòng khác thì dùng change_room, không sửa ở đây.
         """
-        raise NotImplementedError("TODO")
+        try:
+            self._lock_booking(booking_id)
+            booking = self._load(booking_id)
+            if booking.status != BookingStatus.CONFIRMED:
+                raise BusinessError("Chỉ sửa được booking đang ở trạng thái Confirmed",
+                                    code="BOOKING_NOT_EDITABLE")
+
+            dates_changed = (dto.check_in, dto.check_out) != (booking.check_in,
+                                                                booking.check_out)
+            if dates_changed:
+                self._reschedule(booking, dto)
+            else:
+                _check_capacity([d.room for d in booking.details], dto.guests)
+
+            booking.guests = dto.guests
+            booking.note = dto.note
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._load(booking_id)
+
+    def _reschedule(self, booking: Booking, dto) -> None:
+        """Đổi ngày ở: khóa phòng, kiểm tra trống, chốt lại giá. Chưa commit."""
+        # Chỉ chặn ngày quá khứ khi check_in thật sự đổi: khách đến muộn (check_in
+        # đã qua mà vẫn Confirmed) vẫn phải sửa được ngày đi.
+        if dto.check_in != booking.check_in and dto.check_in < dt.date.today():
+            raise BusinessError("Không được dời ngày nhận phòng về quá khứ",
+                                code="CHECK_IN_IN_PAST")
+
+        room_ids = sorted(d.room_id for d in booking.details)
+        lock_rooms(self.db, room_ids)
+        # exclude_booking_id: không có nó thì các đêm cũ của CHÍNH booking này bị
+        # coi là "đã chiếm" → dời 1 ngày cũng báo hết phòng
+        self._check_rooms_bookable(room_ids, dto.check_in, dto.check_out,
+                                   dto.guests, exclude_booking_id=booking.id)
+
+        for detail in booking.details:
+            # Xóa giá cũ và flush TRƯỚC khi thêm giá mới: nếu không, các đêm
+            # trùng ngày đụng ràng buộc unique (booking_detail_id, date)
+            detail.night_rates.clear()
+        self.db.flush()
+        for detail in booking.details:
+            rates = self.pricing.get_nightly_rates(
+                detail.room.room_type_id, dto.check_in, dto.check_out)
+            detail.night_rates.extend(BookingNightRate(date=d, price=p) for d, p in rates)
+
+        booking.check_in = dto.check_in
+        booking.check_out = dto.check_out
 
     # --------------------------------------------- CHUYỂN TRẠNG THÁI
-    def cancel(self, booking_id: int, reason: str):
+    def cancel(self, booking_id: int, reason: str) -> Booking:
         """Hủy booking. Xem R10.
 
-        TODO: chỉ khi Confirmed (không thì INVALID_STATUS_TRANSITION).
-        Ghi cancel_reason, đổi status sang Cancelled. KHÔNG xóa bản ghi.
-        Phòng được nhả cho MỌI đêm của booking vì Cancelled không chiếm phòng.
+        Chỉ khi Confirmed. KHÔNG xóa bản ghi — chỉ đổi status, để báo cáo vẫn
+        thấy booking đã hủy. Không cần "nhả phòng" bằng tay: Cancelled không
+        nằm trong BLOCKING_STATUSES nên tra phòng trống tự bỏ qua booking này.
         """
-        raise NotImplementedError("TODO")
+        try:
+            self._lock_booking(booking_id)
+            booking = self._load(booking_id)
+            self._ensure_transition(booking, BookingStatus.CANCELLED)
+            booking.status = BookingStatus.CANCELLED
+            booking.cancel_reason = reason
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._load(booking_id)
 
-    def no_show(self, booking_id: int):
+    def no_show(self, booking_id: int) -> Booking:
         """Khách không đến. Xem R10.
 
-        TODO: chỉ khi Confirmed. Hôm nay < check_in → BusinessError
-        TOO_EARLY_TO_NO_SHOW. Đổi status sang NoShow, phòng được nhả.
+        Chỉ khi Confirmed và đã tới ngày nhận phòng: chưa tới ngày thì khách
+        vẫn còn có thể đến, đánh NoShow là sai. Phòng tự được nhả như cancel.
         """
-        raise NotImplementedError("TODO")
+        try:
+            self._lock_booking(booking_id)
+            booking = self._load(booking_id)
+            self._ensure_transition(booking, BookingStatus.NO_SHOW)
+            if dt.date.today() < booking.check_in:
+                raise BusinessError(
+                    f"Chưa tới ngày nhận phòng ({booking.check_in:%d/%m/%Y}), "
+                    "chưa thể đánh khách không đến",
+                    code="TOO_EARLY_TO_NO_SHOW")
+            booking.status = BookingStatus.NO_SHOW
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._load(booking_id)
 
     # ----------------------------------------------------------- CHECK-IN
     def check_in(self, booking_id: int, dto):
@@ -281,5 +376,22 @@ class BookingService:
         raise NotImplementedError("TODO")
 
     def soft_delete(self, booking_id: int) -> None:
-        """TODO: set deleted_at, KHÔNG db.delete()."""
-        raise NotImplementedError("TODO")
+        """Xóa mềm: ghi deleted_at, KHÔNG db.delete() — giữ dữ liệu cho báo cáo.
+
+        Dùng để dọn booking nhập nhầm. Chặn khi khách đang ở (CheckedIn: phòng
+        đang Occupied mà mất booking thì không ai trả phòng được) hoặc đã trả
+        (CheckedOut: đã có hóa đơn, tiền). Booking xóa mềm không còn chiếm phòng
+        vì mọi truy vấn đều lọc deleted_at IS NULL.
+        """
+        try:
+            self._lock_booking(booking_id)
+            booking = self._load(booking_id)
+            if booking.status in UNDELETABLE_STATUSES:
+                raise BusinessError(
+                    f"Booking đang {BookingStatus(booking.status).value}, không xóa được",
+                    code="BOOKING_NOT_DELETABLE")
+            booking.deleted_at = dt.datetime.now()
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise

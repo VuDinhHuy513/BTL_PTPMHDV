@@ -47,6 +47,40 @@ class BookingCreateIn(BaseModel):
         return self
 
 
+class BookingUpdateIn(BaseModel):
+    """PUT = gửi lại ĐỦ các trường sửa được (thay thế toàn bộ), không gửi phần lẻ.
+
+    Không có room_ids: đổi phòng dùng POST /bookings/{id}/change-room (R6).
+    Không kiểm tra "ngày quá khứ" ở đây: chỉ chặn khi check_in BỊ ĐỔI, mà muốn
+    biết có đổi hay không phải so với DB → việc của service.
+    """
+    check_in: dt.date
+    check_out: dt.date
+    guests: int = Field(ge=1)
+    note: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _validate(self):
+        if self.check_out <= self.check_in:
+            raise ValueError("check_out phải sau check_in")
+        if (self.check_out - self.check_in).days > MAX_NIGHTS_PER_BOOKING:
+            raise ValueError(f"Một booking tối đa {MAX_NIGHTS_PER_BOOKING} đêm")
+        return self
+
+
+class CancelIn(BaseModel):
+    # Bắt buộc ghi lý do (R10). strip để chuỗi toàn dấu cách "   " cũng bị chặn.
+    # 255 = độ dài cột bookings.cancel_reason
+    reason: str = Field(min_length=1, max_length=255)
+
+    @model_validator(mode="after")
+    def _strip(self):
+        self.reason = self.reason.strip()
+        if not self.reason:
+            raise ValueError("Lý do hủy không được để trống")
+        return self
+
+
 class BookingNightRateOut(ORMBase):
     date: dt.date
     price: Decimal
