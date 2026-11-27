@@ -46,6 +46,8 @@ vào khóa này ở tầng code.
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import NotFoundError
+from app.models.booking import Booking
 from app.models.room import Room
 
 
@@ -57,3 +59,21 @@ def lock_rooms(db: Session, room_ids: list[int]) -> None:
     ids = sorted(set(room_ids))
     db.execute(select(Room.id).where(Room.id.in_(ids))
                .order_by(Room.id).with_for_update())
+
+
+def lock_booking(db: Session, booking_id: int) -> None:
+    """Khóa dòng booking (SELECT ... FOR UPDATE) trước khi thay đổi nó.
+
+    Hai lễ tân cùng bấm, một người "Hủy", một người "Check-in": không khóa thì
+    cả hai cùng đọc thấy Confirmed và cùng chạy được. Có khóa thì người sau phải
+    đợi, đọc lại thấy trạng thái mới và bị chặn. Tương tự: thêm dịch vụ đúng lúc
+    người khác bấm check-out thì dòng dịch vụ có thể lọt ra ngoài hóa đơn.
+
+    Thứ tự khóa trong toàn dự án: booking TRƯỚC, phòng SAU — tránh deadlock.
+    """
+    found = db.scalar(
+        select(Booking.id)
+        .where(Booking.id == booking_id, Booking.deleted_at.is_(None))
+        .with_for_update())
+    if found is None:
+        raise NotFoundError("Booking", booking_id)

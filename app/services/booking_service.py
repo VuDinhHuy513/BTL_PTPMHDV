@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import BusinessError, NotFoundError
-from app.db.locking import lock_rooms
+from app.db.locking import lock_booking, lock_rooms
 from app.models import (Booking, BookingDetail, BookingNightRate, BookingSource,
                         BookingStatus, Customer, Room, RoomStatus)
 from app.schemas.common import DEFAULT_PAGE_LIMIT
@@ -75,18 +75,8 @@ class BookingService:
                 code="INVALID_STATUS_TRANSITION")
 
     def _lock_booking(self, booking_id: int) -> None:
-        """Khóa dòng booking (SELECT ... FOR UPDATE) trước khi đổi trạng thái.
-
-        Hai lễ tân cùng bấm, một người "Hủy", một người "Check-in": không khóa
-        thì cả hai cùng đọc thấy Confirmed và cùng chạy được. Có khóa thì người
-        sau phải đợi, đọc lại thấy trạng thái mới và bị _ensure_transition chặn.
-        """
-        found = self.db.scalar(
-            select(Booking.id)
-            .where(Booking.id == booking_id, Booking.deleted_at.is_(None))
-            .with_for_update())
-        if found is None:
-            raise NotFoundError("Booking", booking_id)
+        """Khóa dòng booking trước khi đổi trạng thái. Xem lock_booking ở db/locking.py."""
+        lock_booking(self.db, booking_id)
 
     def _load(self, booking_id: int) -> Booking:
         """Nạp booking kèm details, night_rates, room, customer (selectinload, tránh N+1).

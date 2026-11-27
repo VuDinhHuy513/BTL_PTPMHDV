@@ -37,3 +37,12 @@ class BookingService(Base):
     @property
     def amount(self) -> Decimal:
         return self.unit_price * self.quantity
+
+    # Tên/đơn vị đọc từ danh mục chỉ để HIỂN THỊ; tiền luôn dùng unit_price đã chốt
+    @property
+    def service_name(self) -> str:
+        return self.service.name
+
+    @property
+    def unit(self) -> str:
+        return self.service.unit

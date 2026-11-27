@@ -52,12 +52,12 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ✅ | POST | `/bookings/{id}/change-room` | Nhân viên |
 | ⬜ | POST | `/bookings/{id}/check-out` | Nhân viên |
 | | | **08. Dịch vụ** | |
-| ⬜ | GET | `/services` | Mọi vai trò |
-| ⬜ | POST | `/services` | Admin |
-| ⬜ | PUT | `/services/{id}` | Admin |
-| ⬜ | GET | `/bookings/{id}/services` | Nhân viên |
-| ⬜ | POST | `/bookings/{id}/services` | Nhân viên |
-| ⬜ | DELETE | `/bookings/{id}/services/{line_id}` | Nhân viên |
+| ✅ | GET | `/services` | Mọi vai trò |
+| ✅ | POST | `/services` | Admin |
+| ✅ | PUT | `/services/{id}` | Admin |
+| ✅ | GET | `/bookings/{id}/services` | Nhân viên |
+| ✅ | POST | `/bookings/{id}/services` | Nhân viên |
+| ✅ | DELETE | `/bookings/{id}/services/{line_id}` | Nhân viên |
 | | | **09. Thanh toán & hóa đơn** ⭐ | |
 | ⬜ | GET | `/bookings/{id}/folio` | Nhân viên |
 | ⬜ | GET | `/bookings/{id}/payments` | Nhân viên |
