@@ -1,7 +1,8 @@
 """Endpoint booking. Nhóm nhiều endpoint nhất.
 
 Đã làm: GET /bookings, POST /bookings, GET /bookings/{id}, GET /bookings/code/{code},
-        PUT/DELETE /bookings/{id}, POST /bookings/{id}/cancel, POST /bookings/{id}/no-show.
+        PUT/DELETE /bookings/{id}, POST /bookings/{id}/cancel, POST /bookings/{id}/no-show,
+        POST /bookings/walk-in, POST /bookings/{id}/check-in, POST /bookings/{id}/change-room.
 Còn lại: xem danh sách bên dưới.
 
 Quyền: tất cả dùng require_front_desk (Admin + Lễ tân).
@@ -48,11 +49,14 @@ from app.core.response import PageMeta, ok
 from app.db.session import get_db
 from app.models import BookingSource, BookingStatus
 from app.schemas.booking import (BookingCreateIn, BookingOut, BookingUpdateIn,
-                                 CancelIn)
+                                 CancelIn, ChangeRoomIn, CheckInIn, WalkInIn)
 from app.schemas.common import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, MessageOut
 from app.services.booking_service import BookingService
 
 router = APIRouter(prefix="/bookings", tags=["06. Đặt phòng"])
+# Cùng prefix /bookings nhưng tách router để Swagger hiện thành nhóm 07 riêng như
+# API_SPEC (tags khai báo ở router; gắn tag ở từng route thì route hiện ở CẢ hai nhóm)
+stay_router = APIRouter(prefix="/bookings", tags=["07. Nhận / trả phòng"])
 
 
 @router.get("", summary="Danh sách booking (lọc + phân trang)")
@@ -123,3 +127,27 @@ def cancel_booking(booking_id: int, dto: CancelIn, db: Session = Depends(get_db)
 def no_show_booking(booking_id: int, db: Session = Depends(get_db),
                     _=Depends(require_front_desk)):
     return ok(BookingOut.model_validate(BookingService(db).no_show(booking_id)))
+
+
+# ---------------------------------------------------------- 07. Nhận / trả phòng
+# walk-in là đường dẫn cố định: router này được include SAU router chính, nhưng
+# không đụng /{booking_id} vì router chính không có POST /{booking_id}.
+@stay_router.post("/walk-in", status_code=201, summary="Khách vãng lai: đặt + nhận phòng ngay")
+def walk_in(dto: WalkInIn, db: Session = Depends(get_db), _=Depends(require_front_desk)):
+    return ok(BookingOut.model_validate(BookingService(db).walk_in(dto)))
+
+
+@stay_router.post("/{booking_id}/check-in", summary="Nhận phòng")
+def check_in(booking_id: int, dto: CheckInIn, db: Session = Depends(get_db),
+             _=Depends(require_front_desk)):
+    booking = BookingService(db).check_in(booking_id, dto.id_card_number)
+    return ok(BookingOut.model_validate(booking))
+
+
+@stay_router.post("/{booking_id}/change-room",
+                  summary="Đổi phòng (Confirmed hoặc CheckedIn)")
+def change_room(booking_id: int, dto: ChangeRoomIn, db: Session = Depends(get_db),
+                _=Depends(require_front_desk)):
+    booking = BookingService(db).change_room(
+        booking_id, dto.booking_detail_id, dto.new_room_id, dto.reason)
+    return ok(BookingOut.model_validate(booking))

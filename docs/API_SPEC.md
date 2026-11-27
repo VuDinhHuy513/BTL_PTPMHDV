@@ -47,9 +47,9 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ⬜ | POST | `/bookings/{id}/cancel` | Nhân viên |
 | ⬜ | POST | `/bookings/{id}/no-show` | Nhân viên |
 | | | **07. Nhận / trả phòng** ⭐ | |
-| ⬜ | POST | `/bookings/walk-in` | Nhân viên |
-| ⬜ | POST | `/bookings/{id}/check-in` | Nhân viên |
-| ⬜ | POST | `/bookings/{id}/change-room` | Nhân viên |
+| ✅ | POST | `/bookings/walk-in` | Nhân viên |
+| ✅ | POST | `/bookings/{id}/check-in` | Nhân viên |
+| ✅ | POST | `/bookings/{id}/change-room` | Nhân viên |
 | ⬜ | POST | `/bookings/{id}/check-out` | Nhân viên |
 | | | **08. Dịch vụ** | |
 | ⬜ | GET | `/services` | Mọi vai trò |

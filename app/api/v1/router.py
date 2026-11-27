@@ -15,6 +15,7 @@ api_router.include_router(rooms.router)
 api_router.include_router(availability.router)
 api_router.include_router(customers.router)
 api_router.include_router(bookings.router)
+api_router.include_router(bookings.stay_router)
 
 # api_router.include_router(services.router)
 # api_router.include_router(payments.router)

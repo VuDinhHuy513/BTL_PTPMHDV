@@ -1,13 +1,8 @@
 """DTO cho booking.
 
-Đã viết: BookingCreateIn, BookingOut (+ BookingDetailOut, BookingNightRateOut).
-
-TODO (làm cùng các endpoint tương ứng):
-    BookingUpdateIn    check_in, check_out, guests, note
-    CancelIn           reason (min_length=1)
-    CheckInIn          id_card_number (không bắt buộc)
-    WalkInIn           customer, check_out, guests, room_ids[], note
-    ChangeRoomIn       booking_detail_id, new_room_id, reason
+Nhận vào:  BookingCreateIn, WalkInIn, BookingUpdateIn, CancelIn, CheckInIn,
+           ChangeRoomIn
+Trả về:    BookingOut (+ BookingDetailOut, BookingNightRateOut)
 
 Không có trường `source` trong DTO nhận vào: endpoint quyết định nguồn đặt
 (staff/online), người gọi không được tự khai (R13).
@@ -23,6 +18,20 @@ from app.schemas.customer import CustomerIn, CustomerOut
 from app.services.booking_service import MAX_NIGHTS_PER_BOOKING
 
 
+def _validate_new_booking(dto) -> None:
+    """Quy tắc chung của mọi booking MỚI (đặt trước lẫn walk-in), viết một chỗ."""
+    if dto.customer_id is None and dto.customer is None:
+        raise ValueError("Cần customer_id hoặc thông tin customer")
+    if dto.check_out <= dto.check_in:
+        raise ValueError("check_out phải sau check_in")
+    if dto.check_in < dt.date.today():
+        raise ValueError("Không được đặt ngày trong quá khứ")
+    if (dto.check_out - dto.check_in).days > MAX_NIGHTS_PER_BOOKING:
+        raise ValueError(f"Một booking tối đa {MAX_NIGHTS_PER_BOOKING} đêm")
+    if len(set(dto.room_ids)) != len(dto.room_ids):
+        raise ValueError("Không được chọn trùng một phòng hai lần")
+
+
 class BookingCreateIn(BaseModel):
     customer_id: int | None = None
     customer: CustomerIn | None = None
@@ -34,17 +43,41 @@ class BookingCreateIn(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self):
-        if self.customer_id is None and self.customer is None:
-            raise ValueError("Cần customer_id hoặc thông tin customer")
-        if self.check_out <= self.check_in:
-            raise ValueError("check_out phải sau check_in")
-        if self.check_in < dt.date.today():
-            raise ValueError("Không được đặt ngày trong quá khứ")
-        if (self.check_out - self.check_in).days > MAX_NIGHTS_PER_BOOKING:
-            raise ValueError(f"Một booking tối đa {MAX_NIGHTS_PER_BOOKING} đêm")
-        if len(set(self.room_ids)) != len(self.room_ids):
-            raise ValueError("Không được chọn trùng một phòng hai lần")
+        _validate_new_booking(self)
         return self
+
+
+class WalkInIn(BaseModel):
+    """Khách vãng lai: giống đặt phòng nhưng KHÔNG gửi check_in — luôn là hôm nay."""
+    customer_id: int | None = None
+    customer: CustomerIn | None = None
+    check_out: dt.date
+    guests: int = Field(default=1, ge=1)
+    room_ids: list[int] = Field(min_length=1)
+    note: str | None = Field(default=None, max_length=500)
+    id_card_number: str | None = Field(default=None, max_length=20)
+
+    @property
+    def check_in(self) -> dt.date:
+        # Property chứ không phải field: client không gửi được, nhưng
+        # BookingService.create() vẫn đọc được dto.check_in như booking thường
+        return dt.date.today()
+
+    @model_validator(mode="after")
+    def _validate(self):
+        _validate_new_booking(self)
+        return self
+
+
+class CheckInIn(BaseModel):
+    # Không bắt buộc: khách quen đã có số giấy tờ trong hồ sơ từ lần trước
+    id_card_number: str | None = Field(default=None, max_length=20)
+
+
+class ChangeRoomIn(BaseModel):
+    booking_detail_id: int
+    new_room_id: int
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class BookingUpdateIn(BaseModel):
