@@ -66,12 +66,12 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ✅ | GET | `/invoices?from=&to=` | Nhân viên |
 | ✅ | GET | `/invoices/{id}` | Nhân viên |
 | | | **10. Báo cáo** | |
-| ⬜ | GET | `/reports/occupancy?from=&to=` | Nhân viên |
-| ⬜ | GET | `/reports/revenue?from=&to=&groupBy=` | Nhân viên |
-| ⬜ | GET | `/reports/adr-revpar?from=&to=` | Nhân viên |
-| ⬜ | GET | `/reports/arrivals?date=` | Nhân viên |
-| ⬜ | GET | `/reports/departures?date=` | Nhân viên |
-| ⬜ | GET | `/reports/dashboard` | Nhân viên |
+| ✅ | GET | `/reports/occupancy?from=&to=` | Nhân viên |
+| ✅ | GET | `/reports/revenue?from=&to=&groupBy=` | Nhân viên |
+| ✅ | GET | `/reports/adr-revpar?from=&to=` | Nhân viên |
+| ✅ | GET | `/reports/arrivals?date=` | Nhân viên |
+| ✅ | GET | `/reports/departures?date=` | Nhân viên |
+| ✅ | GET | `/reports/dashboard` | Nhân viên |
 | | | **11. Quản trị** | |
 | ⬜ | GET | `/users` | Admin |
 | ⬜ | POST | `/users` | Admin |
