@@ -5,7 +5,7 @@ TODO: bỏ comment dần khi viết xong từng nhóm endpoint.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (auth, availability, bookings, customers, room_types,
-                                  rooms, services)
+                                  payments, rooms, services)
 
 api_router = APIRouter()
 
@@ -19,7 +19,8 @@ api_router.include_router(bookings.stay_router)
 
 api_router.include_router(services.router)
 api_router.include_router(services.booking_services_router)
+api_router.include_router(payments.booking_payments_router)
+api_router.include_router(payments.router)
 
-# api_router.include_router(payments.router)
 # api_router.include_router(reports.router)
 # api_router.include_router(users.router)

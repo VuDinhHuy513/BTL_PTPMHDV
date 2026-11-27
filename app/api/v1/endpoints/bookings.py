@@ -2,7 +2,9 @@
 
 Đã làm: GET /bookings, POST /bookings, GET /bookings/{id}, GET /bookings/code/{code},
         PUT/DELETE /bookings/{id}, POST /bookings/{id}/cancel, POST /bookings/{id}/no-show,
-        POST /bookings/walk-in, POST /bookings/{id}/check-in, POST /bookings/{id}/change-room.
+        POST /bookings/walk-in, POST /bookings/{id}/check-in, POST /bookings/{id}/change-room,
+        POST /bookings/{id}/check-out.
+Dịch vụ, folio, thanh toán: xem services.py và payments.py.
 Còn lại: xem danh sách bên dưới.
 
 Quyền: tất cả dùng require_front_desk (Admin + Lễ tân).
@@ -151,3 +153,10 @@ def change_room(booking_id: int, dto: ChangeRoomIn, db: Session = Depends(get_db
     booking = BookingService(db).change_room(
         booking_id, dto.booking_detail_id, dto.new_room_id, dto.reason)
     return ok(BookingOut.model_validate(booking))
+
+
+@stay_router.post("/{booking_id}/check-out",
+                  summary="Trả phòng + xuất hóa đơn (không bắt trả đủ tiền)")
+def check_out(booking_id: int, db: Session = Depends(get_db),
+              _=Depends(require_front_desk)):
+    return ok(BookingService(db).check_out(booking_id))

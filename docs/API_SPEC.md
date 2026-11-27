@@ -50,7 +50,7 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ✅ | POST | `/bookings/walk-in` | Nhân viên |
 | ✅ | POST | `/bookings/{id}/check-in` | Nhân viên |
 | ✅ | POST | `/bookings/{id}/change-room` | Nhân viên |
-| ⬜ | POST | `/bookings/{id}/check-out` | Nhân viên |
+| ✅ | POST | `/bookings/{id}/check-out` | Nhân viên |
 | | | **08. Dịch vụ** | |
 | ✅ | GET | `/services` | Mọi vai trò |
 | ✅ | POST | `/services` | Admin |
@@ -59,12 +59,12 @@ vụ hằng ngày, kiêm thu ngân). Cột "Quyền" ghi "Nhân viên" nghĩa l�
 | ✅ | POST | `/bookings/{id}/services` | Nhân viên |
 | ✅ | DELETE | `/bookings/{id}/services/{line_id}` | Nhân viên |
 | | | **09. Thanh toán & hóa đơn** ⭐ | |
-| ⬜ | GET | `/bookings/{id}/folio` | Nhân viên |
-| ⬜ | GET | `/bookings/{id}/payments` | Nhân viên |
-| ⬜ | POST | `/bookings/{id}/payments` | Nhân viên |
-| ⬜ | POST | `/payments/{id}/refund` | Nhân viên |
-| ⬜ | GET | `/invoices?from=&to=` | Nhân viên |
-| ⬜ | GET | `/invoices/{id}` | Nhân viên |
+| ✅ | GET | `/bookings/{id}/folio` | Nhân viên |
+| ✅ | GET | `/bookings/{id}/payments` | Nhân viên |
+| ✅ | POST | `/bookings/{id}/payments` | Nhân viên |
+| ✅ | POST | `/payments/{id}/refund` | Nhân viên |
+| ✅ | GET | `/invoices?from=&to=` | Nhân viên |
+| ✅ | GET | `/invoices/{id}` | Nhân viên |
 | | | **10. Báo cáo** | |
 | ⬜ | GET | `/reports/occupancy?from=&to=` | Nhân viên |
 | ⬜ | GET | `/reports/revenue?from=&to=&groupBy=` | Nhân viên |

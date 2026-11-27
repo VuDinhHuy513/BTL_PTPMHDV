@@ -18,6 +18,7 @@ from app.models import (Booking, BookingDetail, BookingNightRate, BookingSource,
                         BookingStatus, Customer, Room, RoomStatus)
 from app.schemas.common import DEFAULT_PAGE_LIMIT
 from app.services.availability_service import AvailabilityService
+from app.services.folio_service import FolioService
 from app.services.pricing_service import PricingService
 
 # Vòng đời hợp lệ của booking — xem sơ đồ ở R4.
@@ -472,18 +473,31 @@ class BookingService:
 
     # ---------------------------------------------------------- CHECK-OUT
     def check_out(self, booking_id: int):
-        """Trả phòng. Xem R8.
+        """Trả phòng + xuất hóa đơn. Xem R8. Trả về InvoiceOut để in.
 
-        TODO:
-          1. _ensure_transition sang CHECKED_OUT.
-          2. Gọi FolioService(...).issue_invoice(booking).
-             ⚠ ĐỪNG tính tiền lại ở đây — logic tính tiền nằm ở FolioService.
-          3. Mỗi phòng → Dirty. Không tạo task dọn: lễ tân gọi buồng phòng
-             ngoài hệ thống, dọn xong đổi phòng về Available bằng
-             PATCH /rooms/{id}/status.
-          4. Booking.status = CHECKED_OUT, ghi checked_out_at.
+        KHÔNG bắt trả đủ tiền mới cho trả phòng: thu tiền làm bên ngoài hệ thống
+        (tiền mặt / chuyển khoản), hóa đơn vẫn ghi số đã trả và số còn lại.
+        Trả phòng sớm vẫn tính đủ các đêm đã đặt (R10) — không tính lại.
         """
-        raise NotImplementedError("TODO")
+        folio_service = FolioService(self.db)
+        try:
+            self._lock_booking(booking_id)
+            booking = self._load(booking_id)
+            self._ensure_transition(booking, BookingStatus.CHECKED_OUT)
+
+            # Tính tiền nằm ở FolioService, không tính lại ở đây
+            invoice = folio_service.issue_invoice(booking)
+            for detail in booking.details:
+                # Lễ tân gọi buồng phòng ngoài hệ thống; dọn xong thì
+                # PATCH /rooms/{id}/status về Available
+                detail.room.status = RoomStatus.DIRTY
+            booking.status = BookingStatus.CHECKED_OUT
+            booking.checked_out_at = dt.datetime.now()
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return folio_service.get_invoice(invoice.id)
 
     def soft_delete(self, booking_id: int) -> None:
         """Xóa mềm: ghi deleted_at, KHÔNG db.delete() — giữ dữ liệu cho báo cáo.
